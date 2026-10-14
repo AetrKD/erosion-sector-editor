@@ -172,7 +172,7 @@ const actions={
   'delete-library':()=>{const id=ui.selection?.id;if(project.placements.some(p=>p.tileId===id)){toast('맵에서 사용 중인 타일 원본은 삭제할 수 없습니다.',true);return;}commit(p=>p.tiles=p.tiles.filter(t=>t.id!==id),'타일 원본을 삭제했습니다.');},
   'floor-down':()=>{ui.floor=Math.max(-1024,ui.floor-1);renderFloors();map.draw();},'floor-up':()=>{ui.floor=Math.min(1024,ui.floor+1);renderFloors();map.draw();},
   'zoom-in':()=>map.zoom(1.2),'zoom-out':()=>map.zoom(1/1.2),'fit':()=>map.fit(),
-  'camera-left':()=>map.rotateCamera(-45),'camera-right':()=>map.rotateCamera(45),'camera-reset':()=>map.resetCamera(),
+  'camera-left':()=>map.rotateCamera(45),'camera-right':()=>map.rotateCamera(-45),'camera-reset':()=>map.resetCamera(),
   'toggle-library':()=>$('libraryPanel').classList.toggle('visible'),'toggle-inspector':()=>$('inspectorPanel').classList.toggle('visible'),
   'close-library':()=>$('libraryPanel').classList.remove('visible'),'close-inspector':()=>$('inspectorPanel').classList.remove('visible')
 };

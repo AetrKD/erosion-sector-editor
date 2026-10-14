@@ -137,7 +137,7 @@ export function createMap(canvas,get,callbacks){
   });
   canvas.addEventListener('pointermove',e=>{const pos=xy(e);hover=world(pos.x,pos.y);
     if(drag?.pan){const next={x:drag.original.x+pos.x-drag.start.x,y:drag.original.y+pos.y-drag.start.y};if(drag.iso)orbit.offset=next;else pan=next;}
-    if(drag?.orbit&&(drag.moved||Math.hypot(pos.x-drag.start.x,pos.y-drag.start.y)>4)){drag.moved=true;orbit.azimuth=(drag.azimuth+(pos.x-drag.start.x)*.4+360)%360;orbit.elevation=Math.max(15,Math.min(80,drag.elevation+(pos.y-drag.start.y)*.3));}
+    if(drag?.orbit&&(drag.moved||Math.hypot(pos.x-drag.start.x,pos.y-drag.start.y)>4)){drag.moved=true;orbit.azimuth=((drag.azimuth-(pos.x-drag.start.x)*.4)%360+360)%360;orbit.elevation=Math.max(15,Math.min(80,drag.elevation+(pos.y-drag.start.y)*.3));}
     if(get().view!=='iso')callbacks.cursor?.(Math.floor(hover.x),get().floor,Math.floor(hover.z));draw();});
   canvas.addEventListener('pointerup',e=>{if(drag?.orbit&&!drag.moved&&isoCamera){const pos=xy(e),hit=pickBox(isoBoxes,isoCamera,pos.x,pos.y);callbacks.select(hit?{kind:'placement',id:hit.id}:null);}
     if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:Math.floor(point.x)-drag.offset.x,z:Math.floor(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});

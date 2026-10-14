@@ -83,13 +83,13 @@ test('orbit controls, drag, pan and zoom change the view without editing tiles',
   await page.locator('[data-view=iso]').click();
   await expect(page.locator('#map')).toHaveAttribute('data-renderer','depth');
   await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(90);
+  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(0);
   await page.getByRole('button',{name:'시점 왼쪽 회전',exact:true}).click();
   expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(45);
   const box=await page.locator('#map').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
   await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+110,y+50,{steps:8});await page.mouse.up();
   let camera=(await page.evaluate(()=>GTBO_EDITOR.summary())).camera;
-  expect(camera.azimuth).toBe(89);expect(camera.elevation).toBe(45);
+  expect(camera.azimuth).toBe(1);expect(camera.elevation).toBe(45);
   await page.keyboard.down('Space');await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+70,y+35,{steps:4});await page.mouse.up();await page.keyboard.up('Space');
   camera=(await page.evaluate(()=>GTBO_EDITOR.summary())).camera;
   expect(camera.offset).toEqual({x:70,y:35});
@@ -141,5 +141,5 @@ test('disabled WebGL shows an explicit fallback and keeps orbit controls usable'
   await page.reload();await page.waitForFunction(()=>!!globalThis.GTBO_EDITOR);
   await page.locator('[data-view=iso]').click();
   await expect(page.locator('#map')).toHaveAttribute('data-renderer','fallback');await expect(page.locator('#cameraFallback')).toBeVisible();
-  await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(90);
+  await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(0);
 });
