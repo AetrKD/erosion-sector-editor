@@ -38,6 +38,12 @@ async function expand(bytes){
   const output=new Uint8Array(total);let offset=0;for(const chunk of chunks){output.set(chunk,offset);offset+=chunk.length;}return output;
 }
 function base64(bytes){let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);}
+function doorSettings(meta,security=null){
+  const s=meta.door_settings||{},ticks=(n,f,max)=>Number.isInteger(n)?Math.max(1,Math.min(max,n)):f;
+  return {type:security===null?(s.type==='SECURITY'?'SECURITY':'NORMAL'):security?'SECURITY':'NORMAL',access:['HOLD','ALARM','TERMINAL'].includes(s.access)?s.access:security?'TERMINAL':'HOLD',
+    break_rule:['NEVER','ALWAYS','UNLOCKED'].includes(s.break_rule)?s.break_rule:'NEVER',noise_passes:!!s.noise_passes,light_passes:!!s.light_passes,
+    hold_ticks:security===true?20:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
+}
 export async function inspectStructure(input,name='tile.nbt'){
   const bytes=input instanceof Uint8Array?input:new Uint8Array(input);
   if(bytes.length>MAX_FILE)throw new Error('설계도 파일은 24MB 이하로 가져오세요.');
@@ -52,12 +58,18 @@ export async function inspectStructure(input,name='tile.nbt'){
   const palette=root.palette||root.palettes?.[0];
   if(!Array.isArray(palette)||!Array.isArray(root.blocks))throw new Error('블록 목록 또는 팔레트가 없는 구조물입니다.');
   const tile={id:uid('tile'),name:name.replace(/\.nbt$/i,''),category:'가져온 타일',size:{x,y,z},ports:[],asset:null};
-  let markerCount=0;
+  let markerCount=0;const drives=new Map();
   for(const block of root.blocks){
     if(!Array.isArray(block.pos)||block.pos.length!==3||!Number.isInteger(block.state)||block.state<0||block.state>=palette.length)throw new Error('잘못된 블록 위치 또는 팔레트 참조가 있습니다.');
     const [bx,by,bz]=block.pos;
     if(![bx,by,bz].every(Number.isInteger)||bx<0||bx>=x||by<0||by>=y||bz<0||bz>=z)throw new Error('구조물 범위 밖의 블록이 있습니다.');
     const state=palette[block.state];
+    if(['gtbo:door_drive','gtbo:security_door_drive'].includes(state.Name)){
+      const facing=state.Properties?.facing||'north';if(!['north','south','east','west'].includes(facing))throw new Error('문 구동부 방향이 올바르지 않습니다.');
+      const along=['north','south'].includes(facing)?bx:bz,plane=['north','south'].includes(facing)?bz:bx;
+      const key=[state.Name,facing,by,plane].join(':');if(!drives.has(key))drives.set(key,[]);
+      drives.get(key).push({bx,by,bz,along,facing,meta:block.nbt||{},security:state.Name==='gtbo:security_door_drive'});continue;
+    }
     if(!['gtbo:door_marker','gtbo:door_connector'].includes(state.Name))continue;
     markerCount++;
     const meta=block.nbt||{},properties=state.Properties||{};
@@ -68,13 +80,22 @@ export async function inspectStructure(input,name='tile.nbt'){
       z:facing==='south'?bz+1:facing==='north'?bz:bz+across,y:by,
       width,height:Number(meta.Height??meta.height??properties.height??3),required:!!meta.Required};
     if(modern){
-      const s=meta.door_settings||{},ticks=(n,f,max)=>Number.isInteger(n)?Math.max(1,Math.min(max,n)):f;
-      port.doorSettings={type:s.type==='SECURITY'?'SECURITY':'NORMAL',access:['HOLD','ALARM','TERMINAL'].includes(s.access)?s.access:'HOLD',
-        break_rule:['NEVER','ALWAYS','UNLOCKED'].includes(s.break_rule)?s.break_rule:'NEVER',noise_passes:!!s.noise_passes,light_passes:!!s.light_passes,
-        hold_ticks:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
+      port.doorSettings=doorSettings(meta);
     }
     const error=portError(tile,port);if(error)throw new Error(`문 마커 ${markerCount}: ${error}`);
     tile.ports.push(port);
+  }
+  for(const row of drives.values()){
+    row.sort((a,b)=>a.along-b.along);
+    if(row.length%6)throw new Error('문 천장 구동부는 각 타일 외곽에 같은 종류·방향으로 6개 연속 설치해야 합니다.');
+    for(let offset=0;offset<row.length;offset+=6){
+      const group=row.slice(offset,offset+6),first=group[0],{bx,by,bz,facing,security}=first,settings=doorSettings(first.meta,security);
+      if(group.some((d,i)=>d.along!==first.along+i||JSON.stringify(doorSettings(d.meta,security))!==JSON.stringify(settings)))throw new Error('문 구동부 6개의 간격 또는 설정이 서로 다릅니다.');
+      const port={id:uid('port'),name:`${security?'보안 문':'일반 문'} ${++markerCount}`,facing,
+        x:facing==='east'?bx+1:facing==='west'?bx:bx+3,z:facing==='south'?bz+1:facing==='north'?bz:bz+3,y:by-3,
+        width:6,height:4,required:true,mount:'ceiling',frame:{sideThickness:.25,headerThickness:.375,bottom:false},doorSettings:settings};
+      const error=portError(tile,port);if(error)throw new Error(`문 구동부: ${error}`);tile.ports.push(port);
+    }
   }
   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
   tile.asset={name,bytes:base64(bytes),sha256:Array.from(hash,b=>b.toString(16).padStart(2,'0')).join(''),

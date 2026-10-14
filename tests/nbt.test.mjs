@@ -7,23 +7,38 @@ function fixture(size=[16,8,16],marker=false,options={}){
   const int=n=>{const b=Buffer.alloc(4);b.writeInt32BE(n);parts.push(b);};
   const str=s=>{const b=Buffer.from(s),len=Buffer.alloc(2);len.writeUInt16BE(b.length);parts.push(len,b);};
   byte(10);str('');byte(9);str('size');byte(3);int(3);size.forEach(int);
-  byte(9);str('palette');byte(10);int(1);byte(8);str('Name');str(marker?'gtbo:door_marker':'create:copycat_panel');
+  byte(9);str('palette');byte(10);int(1);byte(8);str('Name');str(options.drive?'gtbo:security_door_drive':marker?'gtbo:door_marker':'create:copycat_panel');
   if(marker){byte(10);str('Properties');byte(8);str('facing');str(options.facing||'west');if(options.reversed){byte(8);str('reversed');str('true');}byte(0);}byte(0);
-  byte(9);str('blocks');byte(10);int(1);byte(9);str('pos');byte(3);int(3);(options.pos||[0,1,8]).forEach(int);byte(3);str('state');int(0);
+  const count=options.drive?(options.count??6):1;byte(9);str('blocks');byte(10);int(count);
+  for(let i=0;i<count;i++){
+  byte(9);str('pos');byte(3);int(3);const position=[...(options.pos||[0,1,8])];if(options.drive)position[['north','south'].includes(options.facing)?0:2]+=i;position.forEach(int);byte(3);str('state');int(0);
   byte(10);str('nbt');byte(8);str('Material');str('minecraft:iron_block');
   if(options.modern){
-    for(const [key,value] of [['MarkerVersion',1],['Width',6],['Height',4]]){byte(3);str(key);int(value);}
+    for(const [key,value] of [['MarkerVersion',options.drive?2:1],['Width',6],['Height',4]]){byte(3);str(key);int(value);}
     byte(1);str('Required');byte(1);byte(10);str('door_settings');
     for(const [key,value] of [['type','SECURITY'],['access','TERMINAL'],['break_rule','UNLOCKED'],['terminal_command','UNLOCK LAB']]){byte(8);str(key);str(value);}
     byte(1);str('noise_passes');byte(1);byte(1);str('light_passes');byte(0);byte(0);
   }
-  byte(0);byte(0);byte(0);
+  byte(0);byte(0);
+  }byte(0);
   return Buffer.concat(parts);
 }
 test('gzip Create structure preserves original bytes and identifies mod namespace',async()=>{
   const original=gzipSync(fixture());const tile=await inspectStructure(original,'copycat.nbt');
   assert.deepEqual(tile.size,{x:16,y:8,z:16});assert.ok(tile.asset.namespaces.includes('create'));
   assert.equal(Buffer.from(tile.asset.bytes,'base64').compare(original),0);assert.equal(tile.asset.sha256.length,64);
+});
+
+test('six ceiling drives become one outer 6x4 framed connector with one-second security interaction',async()=>{
+  for(const [facing,pos] of [['west',[0,4,5]],['east',[15,4,5]],['north',[5,4,0]],['south',[5,4,15]]]){
+    const tile=await inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing,pos}));
+    assert.equal(tile.ports.length,1);assert.equal(tile.asset.markerCount,1);const port=tile.ports[0];
+    assert.equal(port.mount,'ceiling');assert.equal(port.y,1);assert.equal(port.width,6);assert.equal(port.height,4);
+    assert.deepEqual(port.frame,{sideThickness:.25,headerThickness:.375,bottom:false});assert.equal(port.doorSettings.hold_ticks,20);assert.equal(port.doorSettings.type,'SECURITY');
+    assert.equal(['east','west'].includes(facing)?port.z:port.x,8);
+  }
+  await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing:'south',pos:[5,4,15],count:5})),/6개/);
+  await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing:'south',pos:[5,2,15]})),/높이|범위/);
 });
 test('door marker is interpreted as a horizontal boundary connector',async()=>{
   const tile=await inspectStructure(fixture([16,8,16],true));
