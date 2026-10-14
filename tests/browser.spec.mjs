@@ -76,3 +76,70 @@ test('narrow screens expose library and inspector without horizontal overflow',a
   await page.locator('[data-action=toggle-inspector]').click();await expect(page.locator('#inspectorPanel')).toBeVisible();
   await page.screenshot({path:'artifacts/editor-mobile.png'});
 });
+
+test('orbit controls, drag, pan and zoom change the view without editing tiles',async({page})=>{
+  const original=await page.evaluate(()=>GTBO_EDITOR.snapshot());
+  await expect(page.locator('#isoControls')).toBeHidden();
+  await page.locator('[data-view=iso]').click();
+  await expect(page.locator('#map')).toHaveAttribute('data-renderer','depth');
+  await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();
+  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(90);
+  await page.getByRole('button',{name:'시점 왼쪽 회전',exact:true}).click();
+  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(45);
+  const box=await page.locator('#map').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
+  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+110,y+50,{steps:8});await page.mouse.up();
+  let camera=(await page.evaluate(()=>GTBO_EDITOR.summary())).camera;
+  expect(camera.azimuth).toBe(89);expect(camera.elevation).toBe(45);
+  await page.keyboard.down('Space');await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+70,y+35,{steps:4});await page.mouse.up();await page.keyboard.up('Space');
+  camera=(await page.evaluate(()=>GTBO_EDITOR.summary())).camera;
+  expect(camera.offset).toEqual({x:70,y:35});
+  const zoom=await page.locator('#zoomLabel').textContent();await page.getByRole('button',{name:'확대',exact:true}).click();
+  expect(await page.locator('#zoomLabel').textContent()).not.toBe(zoom);
+  await page.getByRole('button',{name:'시점 초기화',exact:true}).click();
+  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera).toEqual({azimuth:45,elevation:30,offset:{x:0,y:0}});
+  expect(await page.evaluate(()=>GTBO_EDITOR.snapshot())).toEqual(original);
+  await page.screenshot({path:'artifacts/editor-orbit.png'});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.getByRole('button',{name:'시점 오른쪽 회전',exact:true})).toBeVisible();
+  await page.locator('[data-view=plan]').click();await expect(page.locator('#isoControls')).toBeHidden();
+});
+
+test('depth buffer hides rear tiles regardless of submission order',async({page})=>{
+  const result=await page.evaluate(async()=>{
+    const {createCamera,createIsoRenderer,pickBox}=await import('/iso.mjs');
+    const canvas=document.createElement('canvas');canvas.width=240;canvas.height=240;
+    const ctx=canvas.getContext('2d'),renderer=createIsoRenderer();
+    if(!renderer)return {supported:false};
+    try{
+      const camera=createCamera({width:240,height:240,scale:70,target:[1,1,1],azimuth:45,elevation:30});
+      const rear={id:'rear',min:[0,0,0],max:[1,1,1],color:'#ff3030'},front={id:'front',min:[1.1,0,1.1],max:[2.1,1,2.1],color:'#30ff30'};
+      let point;
+      for(let y=50;y<190&&!point;y++)for(let x=50;x<190;x++)if(pickBox([rear],camera,x+.5,y+.5)&&pickBox([front],camera,x+.5,y+.5)){point={x,y};break;}
+      if(!point)return {supported:true,overlap:false};
+      const pixel=list=>{ctx.clearRect(0,0,240,240);renderer.draw(ctx,list,camera,1);return [...ctx.getImageData(point.x,point.y,1,1).data];};
+      return {supported:true,overlap:true,front:pixel([front]),a:pixel([front,rear]),b:pixel([rear,front]),picked:pickBox([front,rear],camera,point.x+.5,point.y+.5).id};
+    }finally{renderer.destroy();}
+  });
+  expect(result.supported).toBe(true);expect(result.overlap).toBe(true);expect(result.a).toEqual(result.front);expect(result.b).toEqual(result.front);expect(result.picked).toBe('front');
+});
+
+test('clicking stacked geometry selects the visible upper tile',async({page})=>{
+  const project=await page.evaluate(()=>GTBO_EDITOR.snapshot());
+  project.placements=[{id:'upper',tileId:'start',x:0,y:1,z:0,rotation:0,roomId:'r2',name:'위쪽 타일'},{id:'lower',tileId:'start',x:0,y:0,z:0,rotation:0,roomId:'r1',name:'아래쪽 타일'}];
+  project.gimmicks=[];project.links=[];
+  await page.locator('#projectInput').setInputFiles({name:'stacked.gtboproject.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});
+  await page.locator('[data-view=iso]').click();await page.getByRole('button',{name:'시점 초기화',exact:true}).click();
+  const box=await page.locator('#map').boundingBox();
+  await page.locator('#map').click({position:{x:box.width/2,y:box.height/2}});
+  await expect(page.locator('#inspectorContent .inspect-title')).toHaveText('위쪽 타일');
+  await expect(page.getByLabel('층 높이',{exact:true})).toHaveValue('1');
+});
+
+test('disabled WebGL shows an explicit fallback and keeps orbit controls usable',async({page})=>{
+  await page.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type==='webgl'?null:original.call(this,type,...args);};});
+  await page.reload();await page.waitForFunction(()=>!!globalThis.GTBO_EDITOR);
+  await page.locator('[data-view=iso]').click();
+  await expect(page.locator('#map')).toHaveAttribute('data-renderer','fallback');await expect(page.locator('#cameraFallback')).toBeVisible();
+  await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(90);
+});

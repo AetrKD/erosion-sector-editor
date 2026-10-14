@@ -1,12 +1,26 @@
-import {dimensions,bounds,worldPoint,worldPorts,tileOf,connections,placementError,KINDS,inversePoint} from './core.mjs';
+import {dimensions,worldPoint,tileOf,connections,placementError,KINDS,inversePoint} from './core.mjs';
+import {boxCorners,createCamera,pickBox,sceneTarget,createIsoRenderer,drawIsoFallback} from './iso.mjs';
 export function createMap(canvas,get,callbacks){
   const ctx=canvas.getContext('2d');
   let width=0,height=0,scale=65,pan={x:0,y:0},hover=null,drag=null,space=false,initialized=false;
-  const projected=[];
+  let isoRenderer,isoCamera,isoBoxes=[];
+  const orbit={azimuth:45,elevation:30,offset:{x:0,y:0}};
+  function boxes(){return get().project.placements.flatMap(p=>{
+    const t=tileOf(get().project,p);if(!t)return [];
+    const d=dimensions(t,p.rotation),room=get().project.rooms.find(r=>r.id===p.roomId);
+    return [{id:p.id,p,min:[p.x,p.y,p.z],max:[p.x+d.x/16,p.y+d.y/8,p.z+d.z/16],color:room?.color||'#8296a4',label:room?.code||t.name,selected:get().selection?.kind==='placement'&&get().selection.id===p.id}];
+  });}
+  function camera(list=boxes(),unit=scale){return createCamera({width,height,scale:unit,target:sceneTarget(list),...orbit});}
   function screen(x,z){return {x:pan.x+x*scale,z:pan.y+z*scale};}
   function world(x,y){return {x:(x-pan.x)/scale,z:(y-pan.y)/scale};}
   function active(p){const t=tileOf(get().project,p);return t&&p.y<=get().floor&&p.y+t.size.y/8>get().floor;}
   function fit(){
+    if(get().view==='iso'){
+      const list=boxes(),unit=camera(list,1),points=list.flatMap(b=>boxCorners(b).map(p=>unit.project(p)));
+      orbit.offset={x:0,y:0};
+      scale=points.length?Math.max(8,Math.min(130,(width-110)/Math.max(1,Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x))),(height-150)/Math.max(1,Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y))))):65;
+      draw();return;
+    }
     const p=get().project;
     if(!p.placements.length){scale=65;pan={x:width/2,y:height/2};draw();return;}
     // Sizes are stored in blocks, positions in grid cells.
@@ -75,26 +89,24 @@ export function createMap(canvas,get,callbacks){
       if(selected){ctx.font='10px "Malgun Gothic",sans-serif';ctx.fillStyle='#d8e3db';ctx.fillText(g.name,p.x+15,p.z+4);}
     }
   }
-  function polygon(points,fill,stroke){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}
   function drawIso(){
-    const state=get(),list=state.project.placements.map(p=>({p,t:tileOf(state.project,p)})).filter(o=>o.t);
-    projected.length=0;if(!list.length)return;
-    const s=Math.min(scale,62),projection=(x,y,z)=>({x:width/2+(x-z)*s*.62,y:height/2+(x+z)*s*.29-y*s*.65});
-    const xs=list.flatMap(({p,t})=>[p.x,p.x+dimensions(t,p.rotation).x/16]),zs=list.flatMap(({p,t})=>[p.z,p.z+dimensions(t,p.rotation).z/16]);
-    const cx=(Math.min(...xs)+Math.max(...xs))/2,cz=(Math.min(...zs)+Math.max(...zs))/2;
-    const proj=(x,y,z)=>projection(x-cx,y-.5,z-cz);
-    const grid=10;for(let i=-grid;i<=grid;i++){
-      const a=proj(cx+i,0,cz-grid),b=proj(cx+i,0,cz+grid);ctx.strokeStyle='#22313c';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      const c=proj(cx-grid,0,cz+i),d=proj(cx+grid,0,cz+i);ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.stroke();
+    isoBoxes=boxes();isoCamera=camera(isoBoxes);
+    const target=isoCamera.target,grid=10;
+    for(let i=-grid;i<=grid;i++){
+      const a=isoCamera.project([target[0]+i,0,target[2]-grid]),b=isoCamera.project([target[0]+i,0,target[2]+grid]);
+      const c=isoCamera.project([target[0]-grid,0,target[2]+i]),d=isoCamera.project([target[0]+grid,0,target[2]+i]);
+      ctx.strokeStyle='#22313c';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.stroke();
     }
-    list.sort((a,b)=>(a.p.x+a.p.z)-(b.p.x+b.p.z)||a.p.y-b.p.y);
-    for(const {p,t} of list){const d=dimensions(t,p.rotation),x=p.x,z=p.z,y=p.y,dx=d.x/16,dz=d.z/16,dy=d.y/8;
-      const a=proj(x,y+dy,z),b=proj(x+dx,y+dy,z),c=proj(x+dx,y+dy,z+dz),e=proj(x,y+dy,z+dz),bottomB=proj(x+dx,y,z),bottomC=proj(x+dx,y,z+dz),bottomE=proj(x,y,z+dz);
-      const room=state.project.rooms.find(r=>r.id===p.roomId),color=room?.color||'#8296a4',selected=state.selection?.kind==='placement'&&state.selection.id===p.id;
-      const stroke=selected?'#d0efc0':color+'d0';polygon([b,c,bottomC,bottomB],color+'45',stroke);polygon([e,c,bottomC,bottomE],color+'65',stroke);polygon([a,b,c,e],color+'95',stroke);
-      const middle={x:(a.x+c.x)/2,y:(a.y+c.y)/2};ctx.fillStyle='#edf1e8';ctx.font='10px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.fillText(room?.code||t.name,middle.x,middle.y+3);ctx.textAlign='left';
-      projected.push({p,points:[a,b,c,e,bottomB,bottomC,bottomE]});
+    if(isoRenderer===undefined){try{isoRenderer=createIsoRenderer();}catch{isoRenderer=null;}}
+    const accelerated=isoRenderer?.draw(ctx,isoBoxes,isoCamera,window.devicePixelRatio||1);
+    if(!accelerated)drawIsoFallback(ctx,isoBoxes,isoCamera);
+    for(const box of isoBoxes){
+      const center=[(box.min[0]+box.max[0])/2,box.max[1],(box.min[2]+box.max[2])/2],point=isoCamera.project(center);
+      if(pickBox(isoBoxes,isoCamera,point.x,point.y)?.id!==box.id)continue;
+      if(scale<28&&!box.selected)continue;
+      ctx.font='10px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#14202c';ctx.strokeText(box.label,point.x,point.y+3);ctx.fillStyle='#edf1e8';ctx.fillText(box.label,point.x,point.y+3);ctx.textAlign='left';
     }
+    callbacks.camera?.({...orbit,accelerated:!!accelerated});
   }
   function draw(){
     if(!width)return;const state=get();ctx.clearRect(0,0,width,height);ctx.fillStyle='#111a23';ctx.fillRect(0,0,width,height);
@@ -113,9 +125,9 @@ export function createMap(canvas,get,callbacks){
   const xy=e=>{const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};};
   canvas.addEventListener('pointerdown',e=>{
     const pos=xy(e);canvas.focus();if(e.button===2){e.preventDefault();callbacks.cancel?.();return;}
-    if(e.button===1||space){drag={pan:true,start:pos,original:{...pan}};canvas.setPointerCapture(e.pointerId);return;}
+    if(e.button===1||space){drag={pan:true,start:pos,original:{...(get().view==='iso'?orbit.offset:pan)},iso:get().view==='iso'};canvas.setPointerCapture(e.pointerId);return;}
     if(e.button!==0)return;const state=get();
-    if(state.view==='iso'){const hit=[...projected].reverse().find(o=>{const xs=o.points.map(q=>q.x),ys=o.points.map(q=>q.y);return pos.x>=Math.min(...xs)&&pos.x<=Math.max(...xs)&&pos.y>=Math.min(...ys)&&pos.y<=Math.max(...ys);});callbacks.select(hit?{kind:'placement',id:hit.p.id}:null);return;}
+    if(state.view==='iso'){drag={orbit:true,start:pos,azimuth:orbit.azimuth,elevation:orbit.elevation,moved:false};canvas.setPointerCapture(e.pointerId);return;}
     const p=world(pos.x,pos.y);hover=p;
     if(state.mode==='paint'&&state.brush?.kind==='tile'){callbacks.place(Math.floor(p.x),state.floor,Math.floor(p.z));return;}
     if(state.mode==='gimmick'&&state.brush){const tile=hitTile(p.x,p.z);if(tile){const source=tileOf(state.project,tile),local=inversePoint({x:(p.x-tile.x)*16,y:(state.floor-tile.y)*8+1,z:(p.z-tile.z)*16},source,tile.rotation);callbacks.gimmick(tile,local);}else callbacks.notify('기믹은 배치된 타일 안에 놓아주세요.',true);return;}
@@ -123,11 +135,17 @@ export function createMap(canvas,get,callbacks){
     const tile=hitTile(p.x,p.z);callbacks.select(tile?{kind:'placement',id:tile.id}:null);
     if(tile){drag={placement:{...tile},start:pos,offset:{x:Math.floor(p.x)-tile.x,z:Math.floor(p.z)-tile.z}};canvas.setPointerCapture(e.pointerId);}draw();
   });
-  canvas.addEventListener('pointermove',e=>{const pos=xy(e);hover=world(pos.x,pos.y);if(drag?.pan){pan={x:drag.original.x+pos.x-drag.start.x,y:drag.original.y+pos.y-drag.start.y};}callbacks.cursor?.(Math.floor(hover.x),get().floor,Math.floor(hover.z));draw();});
-  canvas.addEventListener('pointerup',e=>{if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:Math.floor(point.x)-drag.offset.x,z:Math.floor(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
+  canvas.addEventListener('pointermove',e=>{const pos=xy(e);hover=world(pos.x,pos.y);
+    if(drag?.pan){const next={x:drag.original.x+pos.x-drag.start.x,y:drag.original.y+pos.y-drag.start.y};if(drag.iso)orbit.offset=next;else pan=next;}
+    if(drag?.orbit&&(drag.moved||Math.hypot(pos.x-drag.start.x,pos.y-drag.start.y)>4)){drag.moved=true;orbit.azimuth=(drag.azimuth+(pos.x-drag.start.x)*.4+360)%360;orbit.elevation=Math.max(15,Math.min(80,drag.elevation+(pos.y-drag.start.y)*.3));}
+    if(get().view!=='iso')callbacks.cursor?.(Math.floor(hover.x),get().floor,Math.floor(hover.z));draw();});
+  canvas.addEventListener('pointerup',e=>{if(drag?.orbit&&!drag.moved&&isoCamera){const pos=xy(e),hit=pickBox(isoBoxes,isoCamera,pos.x,pos.y);callbacks.select(hit?{kind:'placement',id:hit.id}:null);}
+    if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:Math.floor(point.x)-drag.offset.x,z:Math.floor(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
   canvas.addEventListener('pointercancel',()=>{drag=null;draw();});canvas.addEventListener('pointerleave',()=>{if(!drag)hover=null;draw();});canvas.addEventListener('contextmenu',e=>e.preventDefault());
-  canvas.addEventListener('wheel',e=>{e.preventDefault();const point=xy(e),before=world(point.x,point.y),next=Math.max(20,Math.min(130,scale*(e.deltaY<0?1.12:1/1.12)));scale=next;pan={x:point.x-before.x*scale,y:point.y-before.z*scale};draw();},{passive:false});
+  canvas.addEventListener('wheel',e=>{e.preventDefault();const point=xy(e),before=world(point.x,point.y),next=Math.max(get().view==='iso'?8:20,Math.min(130,scale*(e.deltaY<0?1.12:1/1.12)));
+    if(get().view==='iso'){const factor=next/scale;orbit.offset={x:point.x-width/2-(point.x-width/2-orbit.offset.x)*factor,y:point.y-height/2-(point.y-height/2-orbit.offset.y)*factor};}
+    else pan={x:point.x-before.x*next,y:point.y-before.z*next};scale=next;draw();},{passive:false});
   window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===canvas){space=true;e.preventDefault();}});window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;drag=null;});
   const observer=new ResizeObserver(()=>{const r=canvas.getBoundingClientRect();width=r.width;height=r.height;const ratio=window.devicePixelRatio||1;canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);if(!initialized){initialized=true;fit();}else draw();});observer.observe(canvas);
-  return {draw,fit,zoom(factor){scale=Math.max(20,Math.min(130,scale*factor));draw();},focus(placement){const t=tileOf(get().project,placement);if(!t)return;const d=dimensions(t,placement.rotation);pan={x:width/2-(placement.x+d.x/32)*scale,y:height/2-(placement.z+d.z/32)*scale};draw();},destroy(){observer.disconnect();}};
+  return {draw,fit,rotateCamera(delta){orbit.azimuth=(orbit.azimuth+delta+360)%360;draw();},resetCamera(){orbit.azimuth=45;orbit.elevation=30;fit();},cameraState:()=>({azimuth:orbit.azimuth,elevation:orbit.elevation,offset:{...orbit.offset}}),zoom(factor){scale=Math.max(get().view==='iso'?8:20,Math.min(130,scale*factor));draw();},focus(placement){const t=tileOf(get().project,placement);if(!t)return;const d=dimensions(t,placement.rotation);pan={x:width/2-(placement.x+d.x/32)*scale,y:height/2-(placement.z+d.z/32)*scale};if(get().view==='iso'){const c=camera(boxes(),scale),point=c.project([placement.x+d.x/32,placement.y+d.y/16,placement.z+d.z/32]);orbit.offset.x+=width/2-point.x;orbit.offset.y+=height/2-point.y;}draw();},destroy(){observer.disconnect();isoRenderer?.destroy();}};
 }

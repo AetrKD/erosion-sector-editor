@@ -13,7 +13,14 @@ const map=createMap($('map'),()=>({...ui,project}),{
   place:placeTile,move:moveTile,gimmick:placeGimmick,notify:toast,
   cancel:()=>{ui.mode='select';ui.brush=null;renderAll();},
   zoom:value=>$('zoomLabel').textContent=value+'%',
-  cursor:(x,y,z)=>$('cursorStatus').textContent=`X ${x} · Z ${z} · 높이 ${y*8}`
+  cursor:(x,y,z)=>$('cursorStatus').textContent=`X ${x} · Z ${z} · 높이 ${y*8}`,
+  camera:({azimuth,elevation,accelerated})=>{
+    $('cameraAngle').textContent=`${Math.round(azimuth)}° · 높이 ${Math.round(elevation)}°`;
+    $('map').dataset.renderer=accelerated?'depth':'fallback';
+    $('cameraFallback').hidden=accelerated;
+    const a=azimuth*Math.PI/180,e=elevation*Math.PI/180;
+    $('northArrow').style.transform=`rotate(${Math.atan2(Math.sin(a),Math.cos(a)*Math.sin(e))*180/Math.PI}deg)`;
+  }
 });
 function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').className='toast show'+(error?' error':'');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4200);}
 function openDatabase(){
@@ -68,7 +75,9 @@ function renderFloors(){
   let values=[...floors].sort((a,b)=>a-b);if(values.length>7)values=values.filter(f=>Math.abs(f-ui.floor)<=3);
   $('floorTabs').innerHTML=values.map(f=>`<button data-floor="${f}" class="${f===ui.floor?'active':''}" title="블록 높이 ${f*8}~${f*8+7}">${floorName(f)}</button>`).join('');
   $('viewLabel').textContent=ui.view==='plan'?`${floorName(ui.floor)} · 높이 ${ui.floor*8}~${ui.floor*8+7} · 타일 배치도`:'전체 층 · 타일 입체 배치도';
-  $('mapInstructions').textContent=ui.view==='iso'?'입체 보기는 전체 점유 공간을 표시합니다':ui.mode==='paint'?'클릭해서 타일 배치 · R 회전 · Esc 선택 모드':ui.mode==='gimmick'?'타일 내부를 클릭해서 기믹 배치 · Esc 취소':'타일을 드래그해 이동 · 휠 확대 · Space+드래그 화면 이동';
+  $('mapInstructions').textContent=ui.view==='iso'?'드래그로 시점 회전 · 클릭해서 선택 · 휠 확대 · Space+드래그 이동':ui.mode==='paint'?'클릭해서 타일 배치 · R 회전 · Esc 선택 모드':ui.mode==='gimmick'?'타일 내부를 클릭해서 기믹 배치 · Esc 취소':'타일을 드래그해 이동 · 휠 확대 · Space+드래그 화면 이동';
+  $('isoControls').hidden=ui.view!=='iso';$('map').dataset.view=ui.view;
+  if(ui.view!=='iso'){$('northArrow').style.transform='';$('cameraFallback').hidden=true;}
 }
 function renderAll(){
   $('projectName').textContent=project.name;$('projectSummary').innerHTML=`<span>타일<b>${project.placements.length}</b></span><span>방<b>${project.rooms.length}</b></span><span>기믹<b>${project.gimmicks.length}</b></span>`;
@@ -163,6 +172,7 @@ const actions={
   'delete-library':()=>{const id=ui.selection?.id;if(project.placements.some(p=>p.tileId===id)){toast('맵에서 사용 중인 타일 원본은 삭제할 수 없습니다.',true);return;}commit(p=>p.tiles=p.tiles.filter(t=>t.id!==id),'타일 원본을 삭제했습니다.');},
   'floor-down':()=>{ui.floor=Math.max(-1024,ui.floor-1);renderFloors();map.draw();},'floor-up':()=>{ui.floor=Math.min(1024,ui.floor+1);renderFloors();map.draw();},
   'zoom-in':()=>map.zoom(1.2),'zoom-out':()=>map.zoom(1/1.2),'fit':()=>map.fit(),
+  'camera-left':()=>map.rotateCamera(-45),'camera-right':()=>map.rotateCamera(45),'camera-reset':()=>map.resetCamera(),
   'toggle-library':()=>$('libraryPanel').classList.toggle('visible'),'toggle-inspector':()=>$('inspectorPanel').classList.toggle('visible'),
   'close-library':()=>$('libraryPanel').classList.remove('visible'),'close-inspector':()=>$('inspectorPanel').classList.remove('visible')
 };
@@ -227,4 +237,4 @@ window.addEventListener('keydown',event=>{
 renderAll();
 try{const db=await openDatabase();const saved=await new Promise((resolve,reject)=>{const request=db.transaction('projects').objectStore('projects').get('current');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});if(saved){project=readProject(saved);ui.activeRoomId=project.rooms[0]?.id||'';renderAll();requestAnimationFrame(()=>map.fit());}$('saveStatus').textContent='자동 저장 준비';$('saveStatus').className='save-status saved';}catch{toast('자동 저장을 사용할 수 없습니다. 프로젝트 파일로 저장해 주세요.',true);$('saveStatus').textContent='파일 저장 사용';}
 // Read-only diagnostics expose counts for local browser QA without changing editor state.
-globalThis.GTBO_EDITOR=Object.freeze({summary:()=>({placements:project.placements.length,gimmicks:project.gimmicks.length,rooms:project.rooms.length,floor:ui.floor,view:ui.view,issues:validate(project)}),snapshot:()=>clone(project)});
+globalThis.GTBO_EDITOR=Object.freeze({summary:()=>({placements:project.placements.length,gimmicks:project.gimmicks.length,rooms:project.rooms.length,floor:ui.floor,view:ui.view,camera:map.cameraState(),issues:validate(project)}),snapshot:()=>clone(project)});
