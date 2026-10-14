@@ -62,10 +62,17 @@ export async function inspectStructure(input,name='tile.nbt'){
     markerCount++;
     const meta=block.nbt||{},properties=state.Properties||{};
     const facing=properties.facing||meta.facing||'north';
+    const modern=meta.MarkerVersion===1,width=Number(meta.Width??meta.width??properties.width??2),across=modern?(properties.reversed==='true'?1-width/2:width/2):0.5;
     const port={id:uid('port'),name:typeof meta.Name==='string'?meta.Name:`연결구 ${markerCount}`,facing,
-      x:facing==='east'?bx+1:facing==='west'?bx:bx+0.5,
-      z:facing==='south'?bz+1:facing==='north'?bz:bz+0.5,y:by,
-      width:Number(meta.Width??properties.width??2),height:Number(meta.Height??properties.height??3),required:!!meta.Required};
+      x:facing==='east'?bx+1:facing==='west'?bx:bx+across,
+      z:facing==='south'?bz+1:facing==='north'?bz:bz+across,y:by,
+      width,height:Number(meta.Height??meta.height??properties.height??3),required:!!meta.Required};
+    if(modern){
+      const s=meta.door_settings||{},ticks=(n,f,max)=>Number.isInteger(n)?Math.max(1,Math.min(max,n)):f;
+      port.doorSettings={type:s.type==='SECURITY'?'SECURITY':'NORMAL',access:['HOLD','ALARM','TERMINAL'].includes(s.access)?s.access:'HOLD',
+        break_rule:['NEVER','ALWAYS','UNLOCKED'].includes(s.break_rule)?s.break_rule:'NEVER',noise_passes:!!s.noise_passes,light_passes:!!s.light_passes,
+        hold_ticks:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
+    }
     const error=portError(tile,port);if(error)throw new Error(`문 마커 ${markerCount}: ${error}`);
     tile.ports.push(port);
   }
