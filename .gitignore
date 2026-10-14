@@ -1,0 +1,10 @@
+node_modules/
+artifacts/
+*.log
+.vercel/
+.openai/
+.sites-runtime/
+.env
+.env.*
+GTBO/
+workspaces/

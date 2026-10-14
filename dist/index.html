@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#121a21"><meta name="description" content="GTBO 타일과 기믹을 조립하는 스테이지 에디터. Create 설계도를 불러오고 층별로 공간을 구성하세요.">
+  <title>GTBO · 스테이지 에디터</title><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="./" aria-label="GTBO 스테이지 에디터"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>GTBO</strong><span class="brand-divider"></span><span class="brand-sub">스테이지 에디터</span><span class="version">ALPHA 01</span></a>
+    <nav class="header-actions" aria-label="프로젝트 작업">
+      <span id="saveStatus" class="save-status" aria-live="polite">불러오는 중</span>
+      <button data-action="new" class="quiet">새 프로젝트</button><button data-action="open" class="quiet">불러오기</button>
+      <button data-action="save" class="button">프로젝트 저장 <span>↓</span></button><button data-action="export" class="button primary">스테이지 내보내기 <span>↗</span></button>
+    </nav>
+  </header>
+  <div class="project-bar"><div class="project-heading"><span class="project-symbol">A1</span><div><button id="projectName" class="project-title" data-action="project"></button><div class="project-caption">공간을 연결하고, 임무를 설계하세요.</div></div><span class="draft-badge">설계 초안</span></div><div class="project-summary" id="projectSummary"></div><button class="quiet" data-action="help">사용 가이드 <span>?</span></button></div>
+  <main class="workspace">
+    <aside class="library panel" id="libraryPanel" aria-label="타일과 기믹 라이브러리">
+      <div class="panel-heading"><h2>라이브러리</h2><div><button class="icon-button" data-action="import-nbt" aria-label="Create 설계도 가져오기" title="Create 설계도 가져오기">＋</button><button class="icon-button panel-close" data-action="close-library" aria-label="라이브러리 닫기">×</button></div></div>
+      <div class="tabs" role="tablist" aria-label="라이브러리 분류"><button role="tab" aria-selected="true" data-tab="tiles">타일</button><button role="tab" aria-selected="false" data-tab="gimmicks">기믹</button><button role="tab" aria-selected="false" data-tab="rooms">방·구역</button></div>
+      <div id="libraryContent" class="library-content"></div>
+      <div class="library-footer"><span class="grid-icon">▦</span><div><strong>기본 타일 규격</strong><span>X 16 × Z 16 × 높이 8블록</span></div></div>
+    </aside>
+    <section class="editor" aria-label="스테이지 배치 작업 영역">
+      <div class="editor-toolbar"><div class="tool-group"><button data-action="toggle-library" class="icon-button mobile-toggle" title="라이브러리 열기" aria-label="라이브러리 열기">▤</button><button data-mode="select" class="tool active" title="선택 / 이동 (V)">↖ <span>선택</span></button><button data-mode="paint" class="tool" title="타일 배치 (B)">▦ <span>배치</span></button><button data-action="undo" class="icon-button" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button><button data-action="redo" class="icon-button" title="다시 실행 (Ctrl+Y)" aria-label="다시 실행">↷</button></div><div class="view-switch" aria-label="보기 방식"><button data-view="plan" class="active">평면</button><button data-view="iso">입체</button><button data-action="toggle-inspector" class="icon-button mobile-toggle" aria-label="속성 열기">☷</button></div></div>
+      <div class="floor-bar"><span class="eyebrow">HEIGHT LAYER</span><div class="floor-controls"><button class="icon-button" data-action="floor-down" aria-label="아래 층">−</button><div id="floorTabs" class="floor-tabs"></div><button class="icon-button" data-action="floor-up" aria-label="위 층">＋</button></div><label class="ghost-toggle"><input type="checkbox" id="ghostToggle" checked> 다른 층 흐리게</label></div>
+      <div class="canvas-wrap" id="canvasWrap"><canvas id="map" tabindex="0" aria-label="스테이지 배치도. 타일을 선택한 뒤 격자를 클릭해 배치합니다. 좌표 배치는 속성 패널에서 가능합니다."></canvas><div class="map-label"><span class="live-dot"></span><span id="viewLabel">1층 · 타일 배치도</span></div><div class="map-north"><span>N</span>↑</div><div class="map-instructions" id="mapInstructions">타일을 선택하거나 드래그해서 이동하세요</div><div class="map-controls"><button data-action="zoom-out" aria-label="축소">−</button><span id="zoomLabel">100%</span><button data-action="zoom-in" aria-label="확대">＋</button><span class="control-divider"></span><button data-action="fit" title="전체 보기" aria-label="전체 보기">⌖</button></div><div class="map-legend"><span><i class="legend-port"></i> 연결된 문</span><span><i class="legend-open"></i> 미연결 문</span></div></div>
+      <div class="validation-bar"><button data-action="validation" id="validationSummary" class="validation-summary"></button><span class="shortcut-hint">V 선택 · B 배치 · R 회전 · Del 삭제 · Space 이동</span><span id="cursorStatus" class="cursor-status">X — · Z —</span></div>
+    </section>
+    <aside class="inspector panel" id="inspectorPanel" aria-label="선택 항목 속성"><div class="panel-heading"><h2>속성</h2><div><span class="tiny-label" id="inspectorLabel">STAGE</span><button class="icon-button panel-close" data-action="close-inspector" aria-label="속성 닫기">×</button></div></div><div id="inspectorContent" class="inspector-content"></div><div class="inspector-footer"><span class="live-dot"></span> 브라우저에 자동 저장 · 파일로 백업 가능</div></aside>
+  </main>
+  <footer class="app-footer"><span><i class="status-square"></i> GTBO WORKSPACE</span><span id="bottomStatus">수평 연결 · 복층 타일 지원</span><button data-action="sample">예시 스테이지 열기</button></footer>
+  <input type="file" id="nbtInput" accept=".nbt" multiple hidden><input type="file" id="projectInput" accept=".json,.gtboproject" hidden>
+  <dialog id="dialog"><form id="dialogForm"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button type="button" class="icon-button" data-action="close-dialog" aria-label="닫기">×</button></div><div id="dialogBody" class="dialog-body"></div><div id="dialogActions" class="dialog-actions"></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.mjs"></script>
+</body></html>

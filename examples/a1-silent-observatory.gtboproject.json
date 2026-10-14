@@ -1,0 +1,461 @@
+{
+  "format": "gtbo-project",
+  "version": 1,
+  "id": "a1-silent-observatory",
+  "name": "A1 · 잠든 관측소",
+  "description": "관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "tiles": [
+    {
+      "id": "start",
+      "name": "진입실",
+      "category": "시작",
+      "size": {
+        "x": 16,
+        "y": 8,
+        "z": 16
+      },
+      "ports": [
+        {
+          "id": "동쪽 문",
+          "name": "동쪽 문",
+          "x": 16,
+          "y": 1,
+          "z": 8,
+          "facing": "east",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    },
+    {
+      "id": "corridor",
+      "name": "직선 복도",
+      "category": "이동",
+      "size": {
+        "x": 16,
+        "y": 8,
+        "z": 16
+      },
+      "ports": [
+        {
+          "id": "서쪽 문",
+          "name": "서쪽 문",
+          "x": 0,
+          "y": 1,
+          "z": 8,
+          "facing": "west",
+          "width": 2,
+          "height": 3,
+          "required": true
+        },
+        {
+          "id": "동쪽 문",
+          "name": "동쪽 문",
+          "x": 16,
+          "y": 1,
+          "z": 8,
+          "facing": "east",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    },
+    {
+      "id": "atrium",
+      "name": "복층 관측 홀",
+      "category": "복층",
+      "size": {
+        "x": 32,
+        "y": 16,
+        "z": 32
+      },
+      "ports": [
+        {
+          "id": "하층 서문",
+          "name": "하층 서문",
+          "x": 0,
+          "y": 1,
+          "z": 8,
+          "facing": "west",
+          "width": 2,
+          "height": 3,
+          "required": true
+        },
+        {
+          "id": "하층 동문",
+          "name": "하층 동문",
+          "x": 32,
+          "y": 1,
+          "z": 8,
+          "facing": "east",
+          "width": 2,
+          "height": 3,
+          "required": true
+        },
+        {
+          "id": "상층 동문",
+          "name": "상층 동문",
+          "x": 32,
+          "y": 9,
+          "z": 24,
+          "facing": "east",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    },
+    {
+      "id": "lab",
+      "name": "연구실",
+      "category": "목표",
+      "size": {
+        "x": 32,
+        "y": 8,
+        "z": 16
+      },
+      "ports": [
+        {
+          "id": "서쪽 문",
+          "name": "서쪽 문",
+          "x": 0,
+          "y": 1,
+          "z": 8,
+          "facing": "west",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    },
+    {
+      "id": "server",
+      "name": "전력 제어실",
+      "category": "목표",
+      "size": {
+        "x": 16,
+        "y": 8,
+        "z": 16
+      },
+      "ports": [
+        {
+          "id": "서쪽 문",
+          "name": "서쪽 문",
+          "x": 0,
+          "y": 1,
+          "z": 8,
+          "facing": "west",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    },
+    {
+      "id": "corner",
+      "name": "모서리 복도",
+      "category": "이동",
+      "size": {
+        "x": 16,
+        "y": 8,
+        "z": 16
+      },
+      "ports": [
+        {
+          "id": "서쪽 문",
+          "name": "서쪽 문",
+          "x": 0,
+          "y": 1,
+          "z": 8,
+          "facing": "west",
+          "width": 2,
+          "height": 3,
+          "required": true
+        },
+        {
+          "id": "남쪽 문",
+          "name": "남쪽 문",
+          "x": 8,
+          "y": 1,
+          "z": 16,
+          "facing": "south",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    },
+    {
+      "id": "storage",
+      "name": "보급 창고",
+      "category": "보급",
+      "size": {
+        "x": 32,
+        "y": 8,
+        "z": 32
+      },
+      "ports": [
+        {
+          "id": "서쪽 문",
+          "name": "서쪽 문",
+          "x": 0,
+          "y": 1,
+          "z": 8,
+          "facing": "west",
+          "width": 2,
+          "height": 3,
+          "required": true
+        }
+      ],
+      "asset": null
+    }
+  ],
+  "placements": [
+    {
+      "id": "p1",
+      "tileId": "start",
+      "x": -2,
+      "y": 0,
+      "z": 0,
+      "rotation": 0,
+      "roomId": "r1",
+      "name": ""
+    },
+    {
+      "id": "p2",
+      "tileId": "corridor",
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "rotation": 0,
+      "roomId": "r2",
+      "name": ""
+    },
+    {
+      "id": "p3",
+      "tileId": "atrium",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "rotation": 0,
+      "roomId": "r3",
+      "name": ""
+    },
+    {
+      "id": "p4",
+      "tileId": "corridor",
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "rotation": 0,
+      "roomId": "r4",
+      "name": ""
+    },
+    {
+      "id": "p5",
+      "tileId": "lab",
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "rotation": 0,
+      "roomId": "r5",
+      "name": ""
+    },
+    {
+      "id": "p6",
+      "tileId": "corridor",
+      "x": 2,
+      "y": 1,
+      "z": 1,
+      "rotation": 0,
+      "roomId": "r6",
+      "name": ""
+    },
+    {
+      "id": "p7",
+      "tileId": "server",
+      "x": 3,
+      "y": 1,
+      "z": 1,
+      "rotation": 0,
+      "roomId": "r7",
+      "name": ""
+    }
+  ],
+  "gimmicks": [
+    {
+      "id": "g1",
+      "type": "spawn",
+      "name": "진입 지점",
+      "placementId": "p1",
+      "position": {
+        "x": 5,
+        "y": 1,
+        "z": 8
+      },
+      "settings": {
+        "count": 4
+      }
+    },
+    {
+      "id": "g2",
+      "type": "alarm",
+      "name": "보안 경보",
+      "placementId": "p4",
+      "position": {
+        "x": 8,
+        "y": 1,
+        "z": 8
+      },
+      "settings": {
+        "duration": 45
+      }
+    },
+    {
+      "id": "g3",
+      "type": "wave",
+      "name": "연구실 방어전",
+      "placementId": "p5",
+      "position": {
+        "x": 12,
+        "y": 1,
+        "z": 8
+      },
+      "settings": {
+        "count": 12,
+        "entity": "minecraft:zombie"
+      }
+    },
+    {
+      "id": "g4",
+      "type": "supply",
+      "name": "제한 보급",
+      "placementId": "p5",
+      "position": {
+        "x": 23,
+        "y": 1,
+        "z": 8
+      },
+      "settings": {
+        "count": 3
+      }
+    },
+    {
+      "id": "g5",
+      "type": "terminal",
+      "name": "전력 복구",
+      "placementId": "p7",
+      "position": {
+        "x": 8,
+        "y": 1,
+        "z": 8
+      },
+      "settings": {
+        "duration": 15
+      }
+    },
+    {
+      "id": "g6",
+      "type": "extraction",
+      "name": "복귀 집결 지점",
+      "placementId": "p1",
+      "position": {
+        "x": 11,
+        "y": 1,
+        "z": 8
+      },
+      "settings": {
+        "duration": 10
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "g2",
+      "to": "g3",
+      "event": "상호작용",
+      "action": "활성화"
+    },
+    {
+      "id": "l2",
+      "from": "g5",
+      "to": "g6",
+      "event": "목표 완료",
+      "action": "활성화"
+    }
+  ],
+  "zones": [
+    {
+      "id": "z1",
+      "name": "진입 시설",
+      "color": "#78968d"
+    },
+    {
+      "id": "z2",
+      "name": "관측 연구동",
+      "color": "#748eae"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "r1",
+      "code": "A-101",
+      "name": "진입실",
+      "zoneId": "z1",
+      "color": "#7ba392"
+    },
+    {
+      "id": "r2",
+      "code": "A-102",
+      "name": "진입 복도",
+      "zoneId": "z1",
+      "color": "#6c8992"
+    },
+    {
+      "id": "r3",
+      "code": "A-103",
+      "name": "관측 홀",
+      "zoneId": "z1",
+      "color": "#809f9b"
+    },
+    {
+      "id": "r4",
+      "code": "B-201",
+      "name": "보안 통로",
+      "zoneId": "z2",
+      "color": "#b59b72"
+    },
+    {
+      "id": "r5",
+      "code": "B-202",
+      "name": "연구실",
+      "zoneId": "z2",
+      "color": "#8c93b5"
+    },
+    {
+      "id": "r6",
+      "code": "B-203",
+      "name": "상층 연결로",
+      "zoneId": "z2",
+      "color": "#688ea5"
+    },
+    {
+      "id": "r7",
+      "code": "B-204",
+      "name": "전력 제어실",
+      "zoneId": "z2",
+      "color": "#8c9fba"
+    }
+  ]
+}
