@@ -9,19 +9,19 @@ function fixture(){
   byte(9);str('blocks');byte(10);int(1);byte(9);str('pos');byte(3);int(3);[0,1,8].forEach(int);byte(3);str('state');int(0);byte(0);byte(0);
   return gzipSync(Buffer.concat(parts));
 }
-test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.GTBO_EDITOR);});
+test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);});
 test('desktop initial stage, layer slicing and isometric view render without browser errors',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await expect(page.locator('#projectName')).toHaveText('A1 · 잠든 관측소');
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).placements).toBe(7);
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).issues.filter(i=>i.severity==='error')).toHaveLength(0);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).placements).toBe(7);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).issues.filter(i=>i.severity==='error')).toHaveLength(0);
   await page.screenshot({path:'artifacts/editor-desktop.png'});
   await page.getByRole('button',{name:'2층',exact:true}).click();
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).floor).toBe(1);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).floor).toBe(1);
   await expect(page.locator('#viewLabel')).toContainText('높이 8~15');
   await page.screenshot({path:'artifacts/editor-upper-floor.png'});
   await page.locator('[data-view=iso]').click();
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).view).toBe('iso');
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).view).toBe('iso');
   await page.screenshot({path:'artifacts/editor-isometric.png'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(errors).toEqual([]);
@@ -39,10 +39,10 @@ test('same XZ overlap is blocked inside a tall tile and allowed above its height
   const dialog=page.locator('#dialog');await dialog.getByLabel('층 높이',{exact:true}).fill('1');
   await dialog.getByRole('button',{name:'배치',exact:true}).click();await expect(dialog).toBeVisible();
   await expect(page.locator('#toast')).toContainText('저장 범위와 겹칩니다');
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).placements).toBe(7);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).placements).toBe(7);
   await dialog.getByLabel('층 높이',{exact:true}).fill('2');await dialog.getByRole('button',{name:'배치',exact:true}).click();
-  await expect(dialog).not.toBeVisible();expect((await page.evaluate(()=>GTBO_EDITOR.summary())).placements).toBe(8);
-  await page.locator('[data-action=undo]').click();expect((await page.evaluate(()=>GTBO_EDITOR.summary())).placements).toBe(7);
+  await expect(dialog).not.toBeVisible();expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).placements).toBe(8);
+  await page.locator('[data-action=undo]').click();expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).placements).toBe(7);
 });
 test('Create NBT import, project download and project restore preserve source bytes',async({page})=>{
   const bytes=fixture();await page.locator('#nbtInput').setInputFiles({name:'copycat_test.nbt',mimeType:'application/octet-stream',buffer:bytes});
@@ -50,12 +50,18 @@ test('Create NBT import, project download and project restore preserve source by
   await expect(page.locator('#inspectorContent')).toContainText('포함 네임스페이스: create');
   const downloadPromise=page.waitForEvent('download');await page.locator('[data-action=save]').click();const download=await downloadPromise;
   const saved=await readFile(await download.path(),'utf8');const project=JSON.parse(saved);
+  expect(download.suggestedFilename()).toMatch(/\.esproject$/);expect(project.format).toBe('erosionsector-project');
   expect(Buffer.from(project.tiles.at(-1).asset.bytes,'base64')).toEqual(bytes);
-  await page.locator('#projectInput').setInputFiles({name:'backup.gtboproject.json',mimeType:'application/json',buffer:Buffer.from(saved)});
+  await page.locator('#projectInput').setInputFiles({name:'backup.esproject',mimeType:'application/json',buffer:Buffer.from(saved)});
   await expect(page.locator('#toast')).toContainText('프로젝트를 불러왔습니다');
-  expect((await page.evaluate(()=>GTBO_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBe(project.tiles.at(-1).asset.bytes);
-  await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.waitForFunction(()=>!!globalThis.GTBO_EDITOR);
-  expect((await page.evaluate(()=>GTBO_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBe(project.tiles.at(-1).asset.bytes);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBe(project.tiles.at(-1).asset.bytes);
+  await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBe(project.tiles.at(-1).asset.bytes);
+});
+test('stage download uses the Erosion Sector file extension and schema',async({page})=>{
+  const pending=page.waitForEvent('download');await page.locator('[data-action=export]').click();const download=await pending;
+  expect(download.suggestedFilename()).toMatch(/\.esfile$/);
+  const stage=JSON.parse(await readFile(await download.path(),'utf8'));expect(stage.format).toBe('erosionsector-stage');expect(stage.runtimeReady).toBe(false);
 });
 test('gimmicks can be placed and connected through an event',async({page})=>{
   await page.locator('[data-tab=gimmicks]').click();await page.locator('[data-gimmick-type=terminal]').click();
@@ -63,10 +69,10 @@ test('gimmicks can be placed and connected through an event',async({page})=>{
   const scale=Math.max(22,Math.min(90,(box.width-130)/8,(box.height-155)/3));
   const panX=box.width/2-1.5*scale,panY=box.height/2-1*scale-5;
   await page.locator('#map').click({position:{x:panX+.5*scale,y:panY+.5*scale}});
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).gimmicks).toBe(7);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).gimmicks).toBe(7);
   await page.getByLabel('표시 이름',{exact:true}).fill('상층 문 제어');await page.getByLabel('표시 이름',{exact:true}).press('Tab');
   await page.locator('[data-action=add-link]').click();await page.locator('#dialog').getByRole('button',{name:'저장',exact:true}).click();
-  const p=await page.evaluate(()=>GTBO_EDITOR.snapshot());expect(p.links).toHaveLength(3);expect(p.gimmicks.at(-1).name).toBe('상층 문 제어');
+  const p=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());expect(p.links).toHaveLength(3);expect(p.gimmicks.at(-1).name).toBe('상층 문 제어');
 });
 test('narrow screens expose library and inspector without horizontal overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
@@ -78,26 +84,26 @@ test('narrow screens expose library and inspector without horizontal overflow',a
 });
 
 test('orbit controls, drag, pan and zoom change the view without editing tiles',async({page})=>{
-  const original=await page.evaluate(()=>GTBO_EDITOR.snapshot());
+  const original=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());
   await expect(page.locator('#isoControls')).toBeHidden();
   await page.locator('[data-view=iso]').click();
   await expect(page.locator('#map')).toHaveAttribute('data-renderer','depth');
   await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(0);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera.azimuth).toBe(0);
   await page.getByRole('button',{name:'시점 왼쪽 회전',exact:true}).click();
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(45);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera.azimuth).toBe(45);
   const box=await page.locator('#map').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
   await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+110,y+50,{steps:8});await page.mouse.up();
-  let camera=(await page.evaluate(()=>GTBO_EDITOR.summary())).camera;
+  let camera=(await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera;
   expect(camera.azimuth).toBe(1);expect(camera.elevation).toBe(45);
   await page.keyboard.down('Space');await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+70,y+35,{steps:4});await page.mouse.up();await page.keyboard.up('Space');
-  camera=(await page.evaluate(()=>GTBO_EDITOR.summary())).camera;
+  camera=(await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera;
   expect(camera.offset).toEqual({x:70,y:35});
   const zoom=await page.locator('#zoomLabel').textContent();await page.getByRole('button',{name:'확대',exact:true}).click();
   expect(await page.locator('#zoomLabel').textContent()).not.toBe(zoom);
   await page.getByRole('button',{name:'시점 초기화',exact:true}).click();
-  expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera).toEqual({azimuth:45,elevation:30,offset:{x:0,y:0}});
-  expect(await page.evaluate(()=>GTBO_EDITOR.snapshot())).toEqual(original);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera).toEqual({azimuth:45,elevation:30,offset:{x:0,y:0}});
+  expect(await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).toEqual(original);
   await page.screenshot({path:'artifacts/editor-orbit.png'});
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -125,10 +131,10 @@ test('depth buffer hides rear tiles regardless of submission order',async({page}
 });
 
 test('clicking stacked geometry selects the visible upper tile',async({page})=>{
-  const project=await page.evaluate(()=>GTBO_EDITOR.snapshot());
+  const project=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());
   project.placements=[{id:'upper',tileId:'start',x:0,y:1,z:0,rotation:0,roomId:'r2',name:'위쪽 타일'},{id:'lower',tileId:'start',x:0,y:0,z:0,rotation:0,roomId:'r1',name:'아래쪽 타일'}];
   project.gimmicks=[];project.links=[];
-  await page.locator('#projectInput').setInputFiles({name:'stacked.gtboproject.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});
+  await page.locator('#projectInput').setInputFiles({name:'stacked.esproject',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});
   await page.locator('[data-view=iso]').click();await page.getByRole('button',{name:'시점 초기화',exact:true}).click();
   const box=await page.locator('#map').boundingBox();
   await page.locator('#map').click({position:{x:box.width/2,y:box.height/2}});
@@ -138,8 +144,8 @@ test('clicking stacked geometry selects the visible upper tile',async({page})=>{
 
 test('disabled WebGL shows an explicit fallback and keeps orbit controls usable',async({page})=>{
   await page.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type==='webgl'?null:original.call(this,type,...args);};});
-  await page.reload();await page.waitForFunction(()=>!!globalThis.GTBO_EDITOR);
+  await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);
   await page.locator('[data-view=iso]').click();
   await expect(page.locator('#map')).toHaveAttribute('data-renderer','fallback');await expect(page.locator('#cameraFallback')).toBeVisible();
-  await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();expect((await page.evaluate(()=>GTBO_EDITOR.summary())).camera.azimuth).toBe(0);
+  await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera.azimuth).toBe(0);
 });

@@ -7,7 +7,7 @@ function fixture(size=[16,8,16],marker=false,options={}){
   const int=n=>{const b=Buffer.alloc(4);b.writeInt32BE(n);parts.push(b);};
   const str=s=>{const b=Buffer.from(s),len=Buffer.alloc(2);len.writeUInt16BE(b.length);parts.push(len,b);};
   byte(10);str('');byte(9);str('size');byte(3);int(3);size.forEach(int);
-  byte(9);str('palette');byte(10);int(1);byte(8);str('Name');str(options.drive?'gtbo:security_door_drive':marker?'gtbo:door_marker':'create:copycat_panel');
+  byte(9);str('palette');byte(10);int(1);byte(8);str('Name');str(options.drive?'erosionsector:security_door_drive':'create:copycat_panel');
   if(marker){byte(10);str('Properties');byte(8);str('facing');str(options.facing||'west');if(options.reversed){byte(8);str('reversed');str('true');}byte(0);}byte(0);
   const count=options.drive?(options.count??6):1;byte(9);str('blocks');byte(10);int(count);
   for(let i=0;i<count;i++){
@@ -40,26 +40,12 @@ test('six ceiling drives become one outer 6x4 framed connector with one-second s
   await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing:'south',pos:[5,4,15],count:5})),/6개/);
   await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing:'south',pos:[5,2,15]})),/높이|범위/);
 });
-test('door marker is interpreted as a horizontal boundary connector',async()=>{
-  const tile=await inspectStructure(fixture([16,8,16],true));
-  assert.equal(tile.asset.markerCount,1);assert.equal(tile.ports[0].facing,'west');assert.equal(tile.ports[0].x,0);
-});
 test('non-grid dimensions and malformed NBT are rejected',async()=>{
   await assert.rejects(inspectStructure(fixture([15,8,16])),/규격/);
   assert.throws(()=>parseNbt(new Uint8Array([10,0,0,9])),/잘렸/);
   await assert.rejects(inspectStructure(new Uint8Array([0,0,0])),/NBT/);
 });
 
-test('6x4 corner markers import their center, floor and independent door traits in every direction',async()=>{
-  for(const [facing,pos,expected] of [['west',[0,9,5],{x:0,y:9,z:8}],['east',[15,1,5],{x:16,y:1,z:8}],['north',[5,1,0],{x:8,y:1,z:0}],['south',[5,9,15],{x:8,y:9,z:16}]]){
-    const tile=await inspectStructure(fixture([16,16,16],true,{modern:true,facing,pos}));const p=tile.ports[0];
-    assert.deepEqual({x:p.x,y:p.y,z:p.z},expected);assert.equal(p.width,6);assert.equal(p.height,4);assert.equal(p.required,true);
-    assert.deepEqual(p.doorSettings,{type:'SECURITY',access:'TERMINAL',break_rule:'UNLOCKED',noise_passes:true,light_passes:false,hold_ticks:60,alarm_ticks:200,terminal_command:'UNLOCK LAB'});
-  }
-  await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,facing:'west',pos:[0,1,14]})),/범위|외곽/);
-  const mirrored=await inspectStructure(fixture([16,8,16],true,{modern:true,facing:'west',pos:[0,1,10],reversed:true}));
-  assert.equal(mirrored.ports[0].z,8);
-});
 
 test('security connectors default to interaction only and preserve explicitly configured conditions',async()=>{
   for(const access of [undefined,'HOLD','ALARM','TERMINAL']){

@@ -64,26 +64,13 @@ export async function inspectStructure(input,name='tile.nbt'){
     const [bx,by,bz]=block.pos;
     if(![bx,by,bz].every(Number.isInteger)||bx<0||bx>=x||by<0||by>=y||bz<0||bz>=z)throw new Error('구조물 범위 밖의 블록이 있습니다.');
     const state=palette[block.state];
-    if(['gtbo:door_drive','gtbo:security_door_drive'].includes(state.Name)){
+    if(['erosionsector:door_drive','erosionsector:security_door_drive'].includes(state.Name)){
       const facing=state.Properties?.facing||'north';if(!['north','south','east','west'].includes(facing))throw new Error('문 구동부 방향이 올바르지 않습니다.');
       const along=['north','south'].includes(facing)?bx:bz,plane=['north','south'].includes(facing)?bz:bx;
       const key=[state.Name,facing,by,plane].join(':');if(!drives.has(key))drives.set(key,[]);
-      drives.get(key).push({bx,by,bz,along,facing,meta:block.nbt||{},security:state.Name==='gtbo:security_door_drive'});continue;
+      drives.get(key).push({bx,by,bz,along,facing,meta:block.nbt||{},security:state.Name==='erosionsector:security_door_drive'});continue;
     }
-    if(!['gtbo:door_marker','gtbo:door_connector'].includes(state.Name))continue;
-    markerCount++;
-    const meta=block.nbt||{},properties=state.Properties||{};
-    const facing=properties.facing||meta.facing||'north';
-    const modern=meta.MarkerVersion===1,width=Number(meta.Width??meta.width??properties.width??2),across=modern?(properties.reversed==='true'?1-width/2:width/2):0.5;
-    const port={id:uid('port'),name:typeof meta.Name==='string'?meta.Name:`연결구 ${markerCount}`,facing,
-      x:facing==='east'?bx+1:facing==='west'?bx:bx+across,
-      z:facing==='south'?bz+1:facing==='north'?bz:bz+across,y:by,
-      width,height:Number(meta.Height??meta.height??properties.height??3),required:!!meta.Required};
-    if(modern){
-      port.doorSettings=doorSettings(meta);
-    }
-    const error=portError(tile,port);if(error)throw new Error(`문 마커 ${markerCount}: ${error}`);
-    tile.ports.push(port);
+
   }
   for(const row of drives.values()){
     row.sort((a,b)=>a.along-b.along);

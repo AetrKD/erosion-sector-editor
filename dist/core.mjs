@@ -132,7 +132,7 @@ export function validate(project) {
 }
 export function exportStage(project) {
   const network=connections(project);
-  return {format:'gtbo-stage',version:1,status:'draft',runtimeReady:false,cellSize:CELL,
+  return {format:'erosionsector-stage',version:1,status:'draft',runtimeReady:false,cellSize:CELL,
     stage:{id:project.id,name:project.name,description:project.description,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers},
     zones:clone(project.zones),rooms:clone(project.rooms),
     tiles:project.tiles.filter(t=>project.placements.some(p=>p.tileId===t.id)).map(t=>({id:t.id,name:t.name,size:t.size,ports:t.ports,asset:t.asset?{name:t.asset.name,sha256:t.asset.sha256,markerCount:t.asset.markerCount}:null})),
@@ -162,7 +162,7 @@ export function demoProject() {
     {id:'g5',type:'terminal',name:'전력 복구',placementId:'p7',position:{x:8,y:1,z:8},settings:{duration:15}},
     {id:'g6',type:'extraction',name:'복귀 집결 지점',placementId:'p1',position:{x:11,y:1,z:8},settings:{duration:10}}
   ];
-  return {format:'gtbo-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
+  return {format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
     description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',minPlayers:1,maxPlayers:4,
     tiles,placements,gimmicks,links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
     zones:[{id:'z1',name:'진입 시설',color:'#78968d'},{id:'z2',name:'관측 연구동',color:'#748eae'}],
@@ -180,7 +180,7 @@ export function readProject(input) {
   const fail=message=>{throw new Error(message);};
   const text=(value,max=160)=>typeof value==='string'&&value.length<=max;
   const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
-  if(!p||p.format!=='gtbo-project'||p.version!==1) fail('지원하는 Erosion Sector 프로젝트 파일이 아닙니다.');
+  if(!p||p.format!=='erosionsector-project'||p.version!==1) fail('지원하는 Erosion Sector 프로젝트 파일이 아닙니다.');
   if(!text(p.id)||!text(p.name)||!text(p.description,3000)) fail('프로젝트 이름 또는 설명이 올바르지 않습니다.');
   for(const [key,max] of [['tiles',200],['placements',1000],['gimmicks',3000],['links',5000],['rooms',1000],['zones',100]]) {
     if(!Array.isArray(p[key])||p[key].length>max) fail(`${key} 목록 크기가 올바르지 않습니다.`);

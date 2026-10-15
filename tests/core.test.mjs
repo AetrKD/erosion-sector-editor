@@ -28,13 +28,13 @@ test('connector dimensions and outer boundary are validated',()=>{
   assert.ok(portError(tile,{...tile.ports[0],x:15}));assert.ok(portError(tile,{...tile.ports[0],y:7}));
 });
 test('save and restore retain references and reject malicious/out-of-range projects',()=>{
-  const p=demoProject();assert.deepEqual(readProject(JSON.stringify(p)),p);
+  const p=demoProject();assert.equal(p.format,'erosionsector-project');assert.deepEqual(readProject(JSON.stringify(p)),p);const foreign=structuredClone(p);foreign.format='foreign-project';assert.throws(()=>readProject(foreign));
   const bad=structuredClone(p);bad.placements[0].rotation=45;assert.throws(()=>readProject(bad));
   const dup=structuredClone(p);dup.rooms.push(dup.rooms[0]);assert.throws(()=>readProject(dup));
   const malformed=structuredClone(p);malformed.gimmicks[0].position.x='bad';assert.throws(()=>readProject(malformed));
 });
 test('stage export is an explicit design draft and retains gimmick event graph',()=>{
-  const out=exportStage(demoProject());assert.equal(out.runtimeReady,false);assert.equal(out.status,'draft');
+  const out=exportStage(demoProject());assert.equal(out.format,'erosionsector-stage');assert.equal(out.runtimeReady,false);assert.equal(out.status,'draft');
   assert.equal(out.connections.length,6);assert.equal(out.links.length,2);assert.deepEqual(out.placements[0].blockPosition,{x:-32,y:0,z:0});
 });
 test('dangling goals and required unconnected doors produce actionable errors',()=>{
