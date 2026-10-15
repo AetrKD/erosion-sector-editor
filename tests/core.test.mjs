@@ -1,6 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {demoProject,readProject,placementError,connections,transformPoint,inversePoint,validate,exportStage,portError} from '../dist/core.mjs';
+import {demoProject,readProject,placementError,connections,transformPoint,inversePoint,validate,exportStage,portError,worldPorts,samePort,tileOf} from '../dist/core.mjs';
+
+test('indexed connections preserve all-pairs results, order, tolerance and ambiguous matches',()=>{
+  const p=demoProject();let seed=43;
+  const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  p.tiles=Array.from({length:4},(_,i)=>({id:`t${i}`,size:{x:16,y:8,z:16},ports:[
+    {id:'w',x:0,y:1+i*.0004,z:8+i*.0004,facing:'west',width:6,height:4},
+    {id:'e',x:16,y:1+i*.0004,z:8+i*.0004,facing:'east',width:6,height:4},
+    {id:'n',x:8-i*.0004,y:1+i*.0004,z:0,facing:'north',width:6,height:4},
+    {id:'s',x:8-i*.0004,y:1+i*.0004,z:16,facing:'south',width:i===3?5:6,height:4}
+  ]}));
+  p.placements=Array.from({length:90},(_,i)=>({id:`p${i}`,tileId:`t${i%4}`,x:Math.floor(random()*7)-3,y:Math.floor(random()*2)-1,z:Math.floor(random()*7)-3,rotation:Math.floor(random()*4)*90}));
+  p.placements.push({...p.placements[0],id:'ambiguous'}, {...p.placements[1],id:'missing',tileId:'absent'});
+  const ports=p.placements.flatMap(q=>{const tile=tileOf(p,q);return tile?worldPorts(tile,q):[];});
+  const pairs=[];for(let i=0;i<ports.length;i++)for(let j=i+1;j<ports.length;j++)if(samePort(ports[i],ports[j]))pairs.push({a:ports[i],b:ports[j]});
+  assert.ok(pairs.length>10);
+  assert.deepEqual(connections(p),{ports,pairs,connected:new Set(pairs.flatMap(({a,b})=>[a.key,b.key]))});
+  const q=demoProject();q.tiles=[{id:'t',size:{x:16,y:8,z:16},ports:[
+    {id:'a',x:-.0004,y:-.0004,z:-.0004,facing:'east',width:6,height:4},
+    {id:'b',x:.0004,y:.0004,z:.0004,facing:'west',width:6,height:4}
+  ]}];q.placements=[{id:'a',tileId:'t',x:0,y:0,z:0,rotation:0},{id:'b',tileId:'t',x:0,y:0,z:0,rotation:0}];
+  assert.equal(connections(q).pairs.length,2,'tolerance must cross negative coordinate bucket boundaries on all axes');
+});
 test('sample stage connects upper and lower horizontal doors with no layout errors',()=>{
   const p=demoProject();assert.equal(connections(p).pairs.length,6);
   assert.equal(validate(p).filter(i=>i.severity==='error').length,0);

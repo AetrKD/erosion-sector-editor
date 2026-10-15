@@ -4,6 +4,9 @@ export function createMap(canvas,get,callbacks){
   const ctx=canvas.getContext('2d');
   let width=0,height=0,scale=65,pan={x:0,y:0},hover=null,drag=null,space=false,initialized=false;
   let isoRenderer,isoCamera,isoBoxes=[];
+  let networkProject,network,drawRequest=null,destroyed=false;
+  function networkFor(project){if(networkProject!==project){networkProject=project;network=connections(project);}return network;}
+  function requestDraw(){if(drawRequest===null&&!destroyed)drawRequest=requestAnimationFrame(()=>{drawRequest=null;draw();});}
   const orbit={azimuth:45,elevation:30,offset:{x:0,y:0}};
   function boxes(){return get().project.placements.flatMap(p=>{
     const t=tileOf(get().project,p);if(!t)return [];
@@ -69,7 +72,7 @@ export function createMap(canvas,get,callbacks){
     ctx.restore();
   }
   function drawPorts(){
-    const state=get(),net=connections(state.project);
+    const state=get(),net=networkFor(state.project);
     for(const port of net.ports){
       if(Math.floor(port.y/8)!==state.floor)continue;
       const q=screen(port.x/16,port.z/16),connected=net.connected.has(port.key);
@@ -101,14 +104,15 @@ export function createMap(canvas,get,callbacks){
     const accelerated=isoRenderer?.draw(ctx,isoBoxes,isoCamera,window.devicePixelRatio||1);
     if(!accelerated)drawIsoFallback(ctx,isoBoxes,isoCamera);
     for(const box of isoBoxes){
+      if(scale<28&&!box.selected)continue;
       const center=[(box.min[0]+box.max[0])/2,box.max[1],(box.min[2]+box.max[2])/2],point=isoCamera.project(center);
       if(pickBox(isoBoxes,isoCamera,point.x,point.y)?.id!==box.id)continue;
-      if(scale<28&&!box.selected)continue;
       ctx.font='10px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#14202c';ctx.strokeText(box.label,point.x,point.y+3);ctx.fillStyle='#edf1e8';ctx.fillText(box.label,point.x,point.y+3);ctx.textAlign='left';
     }
     callbacks.camera?.({...orbit,accelerated:!!accelerated});
   }
   function draw(){
+    if(drawRequest!==null){cancelAnimationFrame(drawRequest);drawRequest=null;}
     if(!width)return;const state=get();ctx.clearRect(0,0,width,height);ctx.fillStyle='#111a23';ctx.fillRect(0,0,width,height);
     if(state.view==='iso'){drawIso();callbacks.zoom?.(Math.round(scale/65*100));return;}
     drawGrid();
@@ -138,7 +142,7 @@ export function createMap(canvas,get,callbacks){
   canvas.addEventListener('pointermove',e=>{const pos=xy(e);hover=world(pos.x,pos.y);
     if(drag?.pan){const next={x:drag.original.x+pos.x-drag.start.x,y:drag.original.y+pos.y-drag.start.y};if(drag.iso)orbit.offset=next;else pan=next;}
     if(drag?.orbit&&(drag.moved||Math.hypot(pos.x-drag.start.x,pos.y-drag.start.y)>4)){drag.moved=true;orbit.azimuth=((drag.azimuth-(pos.x-drag.start.x)*.4)%360+360)%360;orbit.elevation=Math.max(15,Math.min(80,drag.elevation+(pos.y-drag.start.y)*.3));}
-    if(get().view!=='iso')callbacks.cursor?.(Math.floor(hover.x),get().floor,Math.floor(hover.z));draw();});
+    if(get().view!=='iso')callbacks.cursor?.(Math.floor(hover.x),get().floor,Math.floor(hover.z));requestDraw();});
   canvas.addEventListener('pointerup',e=>{if(drag?.orbit&&!drag.moved&&isoCamera){const pos=xy(e),hit=pickBox(isoBoxes,isoCamera,pos.x,pos.y);callbacks.select(hit?{kind:'placement',id:hit.id}:null);}
     if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:Math.floor(point.x)-drag.offset.x,z:Math.floor(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
   canvas.addEventListener('pointercancel',()=>{drag=null;draw();});canvas.addEventListener('pointerleave',()=>{if(!drag)hover=null;draw();});canvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -147,5 +151,5 @@ export function createMap(canvas,get,callbacks){
     else pan={x:point.x-before.x*next,y:point.y-before.z*next};scale=next;draw();},{passive:false});
   window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===canvas){space=true;e.preventDefault();}});window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;drag=null;});
   const observer=new ResizeObserver(()=>{const r=canvas.getBoundingClientRect();width=r.width;height=r.height;const ratio=window.devicePixelRatio||1;canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);if(!initialized){initialized=true;fit();}else draw();});observer.observe(canvas);
-  return {draw,fit,rotateCamera(delta){orbit.azimuth=(orbit.azimuth+delta+360)%360;draw();},resetCamera(){orbit.azimuth=45;orbit.elevation=30;fit();},cameraState:()=>({azimuth:orbit.azimuth,elevation:orbit.elevation,offset:{...orbit.offset}}),zoom(factor){scale=Math.max(get().view==='iso'?8:20,Math.min(130,scale*factor));draw();},focus(placement){const t=tileOf(get().project,placement);if(!t)return;const d=dimensions(t,placement.rotation);pan={x:width/2-(placement.x+d.x/32)*scale,y:height/2-(placement.z+d.z/32)*scale};if(get().view==='iso'){const c=camera(boxes(),scale),point=c.project([placement.x+d.x/32,placement.y+d.y/16,placement.z+d.z/32]);orbit.offset.x+=width/2-point.x;orbit.offset.y+=height/2-point.y;}draw();},destroy(){observer.disconnect();isoRenderer?.destroy();}};
+  return {draw,fit,rotateCamera(delta){orbit.azimuth=(orbit.azimuth+delta+360)%360;draw();},resetCamera(){orbit.azimuth=45;orbit.elevation=30;fit();},cameraState:()=>({azimuth:orbit.azimuth,elevation:orbit.elevation,offset:{...orbit.offset}}),zoom(factor){scale=Math.max(get().view==='iso'?8:20,Math.min(130,scale*factor));draw();},focus(placement){const t=tileOf(get().project,placement);if(!t)return;const d=dimensions(t,placement.rotation);pan={x:width/2-(placement.x+d.x/32)*scale,y:height/2-(placement.z+d.z/32)*scale};if(get().view==='iso'){const c=camera(boxes(),scale),point=c.project([placement.x+d.x/32,placement.y+d.y/16,placement.z+d.z/32]);orbit.offset.x+=width/2-point.x;orbit.offset.y+=height/2-point.y;}draw();},destroy(){destroyed=true;if(drawRequest!==null)cancelAnimationFrame(drawRequest);observer.disconnect();isoRenderer?.destroy();}};
 }

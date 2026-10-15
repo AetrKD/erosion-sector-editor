@@ -10,6 +10,48 @@ function fixture(){
   return gzipSync(Buffer.concat(parts));
 }
 test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);});
+
+test('plan connection cache refreshes after edits and undo without recalculating during view-only redraws',async({page})=>{
+  const result=await page.evaluate(async()=>{
+    const {createMap}=await import('/map.mjs'),{demoProject}=await import('/core.mjs');
+    const project=demoProject();project.tiles=[{id:'t',name:'t',size:{x:16,y:8,z:16},ports:[
+      {id:'w',x:0,y:1,z:8,facing:'west',width:6,height:4},
+      {id:'e',x:16,y:1,z:8,facing:'east',width:6,height:4}
+    ]}];project.placements=[0,1].map(x=>({id:`p${x}`,tileId:'t',roomId:'r1',x,y:0,z:0,rotation:0}));project.gimmicks=[];
+    const shifted=structuredClone(project);shifted.placements[1].x=3;
+    let reads=0;const ports=project.tiles[0].ports;
+    Object.defineProperty(project.tiles[0],'ports',{get(){reads++;return ports;}});
+    const state={project,view:'plan',floor:0,mode:'select'};
+    const canvas=document.createElement('canvas');canvas.style.cssText='width:600px;height:400px';document.body.append(canvas);
+    const context=canvas.getContext('2d'),stroke=context.stroke;let connected=0;
+    context.stroke=function(...args){if(this.strokeStyle==='#c0e6af')connected++;return stroke.apply(this,args);};
+    const map=createMap(canvas,()=>state,{});
+    try{
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const beforeReads=reads;connected=0;map.draw();const before=connected;map.draw();const afterReads=reads;
+      state.project=shifted;connected=0;map.draw();const after=connected;
+      state.project=project;connected=0;map.draw();
+      return {before,after,restored:connected,beforeReads,afterReads};
+    }finally{map.destroy();canvas.remove();}
+  });
+  expect(result.before).toBe(2);expect(result.after).toBe(0);expect(result.restored).toBe(2);
+  expect(result.afterReads).toBe(result.beforeReads);
+});
+
+test('bursts of pointer movement draw once per animation frame',async({page})=>{
+  const result=await page.evaluate(async()=>{
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const canvas=document.querySelector('#map'),context=canvas.getContext('2d'),clear=context.clearRect;
+    let draws=0;context.clearRect=function(...args){draws++;return clear.apply(this,args);};
+    try{
+      const r=canvas.getBoundingClientRect();
+      for(let i=0;i<50;i++)canvas.dispatchEvent(new PointerEvent('pointermove',{clientX:r.left+40+i,clientY:r.top+60}));
+      const synchronous=draws;await new Promise(resolve=>requestAnimationFrame(resolve));
+      return {synchronous,total:draws};
+    }finally{context.clearRect=clear;}
+  });
+  expect(result).toEqual({synchronous:0,total:1});
+});
 test('desktop initial stage, layer slicing and isometric view render without browser errors',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await expect(page.locator('#projectName')).toHaveText('A1 · 잠든 관측소');

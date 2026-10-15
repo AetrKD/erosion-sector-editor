@@ -53,10 +53,26 @@ export function samePort(a,b) {
     a.width===b.width && a.height===b.height;
 }
 export function connections(project) {
-  const ports=project.placements.flatMap(p=>{const t=tileOf(project,p);return t?worldPorts(t,p):[];});
-  const pairs=[];
-  for(let i=0;i<ports.length;i++) for(let j=i+1;j<ports.length;j++) if(samePort(ports[i],ports[j])) pairs.push({a:ports[i],b:ports[j]});
-  return {ports,pairs,connected:new Set(pairs.flatMap(p=>[p.a.key,p.b.key]))};
+  const tiles=new Map(project.tiles.map(t=>[t.id,t]));
+  const ports=project.placements.flatMap(p=>{const t=tiles.get(p.tileId);return t?worldPorts(t,p):[];});
+  const buckets=new Map(),pairs=[],connected=new Set();
+  const key=(face,width,height,x,y,z)=>`${face}:${width}:${height}:${x}:${y}:${z}`;
+  for(let i=0;i<ports.length;i++){
+    const p=ports[i],k=key(p.facing,p.width,p.height,Math.floor(p.x),Math.floor(p.y),Math.floor(p.z));
+    if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(i);
+  }
+  for(let i=0;i<ports.length;i++){
+    const a=ports[i],matches=[];
+    // Probe neighboring cells too: the existing sub-millimeter tolerance crosses cell boundaries.
+    for(let x=Math.floor(a.x-.001);x<=Math.floor(a.x+.001);x++)
+      for(let y=Math.floor(a.y-.001);y<=Math.floor(a.y+.001);y++)
+        for(let z=Math.floor(a.z-.001);z<=Math.floor(a.z+.001);z++)
+          for(const j of buckets.get(key(OPPOSITE[a.facing],a.width,a.height,x,y,z))||[])
+            if(j>i&&samePort(a,ports[j]))matches.push(j);
+    matches.sort((a,b)=>a-b);
+    for(const j of matches){pairs.push({a,b:ports[j]});connected.add(a.key);connected.add(ports[j].key);}
+  }
+  return {ports,pairs,connected};
 }
 export function placementError(project,candidate,ignoreId=candidate.id) {
   const tile=tileOf(project,candidate);
@@ -81,6 +97,8 @@ export function portError(tile,port) {
 }
 export function validate(project) {
   const issues=[];
+  const tileIndex=new Map(project.tiles.map(t=>[t.id,t]));
+  const occupied=project.placements.map(p=>{const tile=tileIndex.get(p.tileId);return tile?bounds(tile,p):null;});
   const add=(severity,message,target=null)=>issues.push({severity,message,target});
   if(project.placements.length===0) add('error','배치된 타일이 없습니다.');
   const used=new Set(project.placements.map(p=>p.tileId));
@@ -90,12 +108,14 @@ export function validate(project) {
     for(const port of tile.ports) {const error=portError(tile,port);if(error) add('error',`${tile.name}: ${error}`,{kind:'library',id:tile.id});}
   }
   for(let i=0;i<project.placements.length;i++) {
-    const placement=project.placements[i],tile=tileOf(project,placement);
+    const placement=project.placements[i],tile=tileIndex.get(placement.tileId);
     if(!tile) {add('error','원본이 없는 타일 배치입니다.',{kind:'placement',id:placement.id});continue;}
     if(!project.rooms.some(r=>r.id===placement.roomId)) add('error',`${placement.name||tile.name}: 방을 지정하세요.`,{kind:'placement',id:placement.id});
     for(let j=i+1;j<project.placements.length;j++) {
-      const other=project.placements[j],otherTile=tileOf(project,other);
-      if(otherTile&&overlaps(bounds(tile,placement),bounds(otherTile,other))) add('error',`${placement.name||tile.name}과 ${other.name||otherTile.name}의 공간이 겹칩니다.`,{kind:'placement',id:placement.id});
+      if(occupied[j]&&overlaps(occupied[i],occupied[j])) {
+        const other=project.placements[j],otherTile=tileIndex.get(other.tileId);
+        add('error',`${placement.name||tile.name}과 ${other.name||otherTile.name}의 공간이 겹칩니다.`,{kind:'placement',id:placement.id});
+      }
     }
   }
   const network=connections(project);
