@@ -1,10 +1,24 @@
 import {dimensions,worldPoint,tileOf,connections,placementError,KINDS,inversePoint} from './core.mjs';
+import {occupancy} from './occupancy.mjs';
 import {boxCorners,createCamera,pickBox,sceneTarget,createIsoRenderer,drawIsoFallback} from './iso.mjs';
 export function createMap(canvas,get,callbacks){
   const ctx=canvas.getContext('2d');
   let width=0,height=0,scale=65,pan={x:0,y:0},hover=null,drag=null,space=false,initialized=false;
   let isoRenderer,isoCamera,isoBoxes=[];
   let networkProject,network,drawRequest=null,destroyed=false;
+  const planMasks=new WeakMap();
+  function slicePath(tile,floor,rotation){
+    let cache=planMasks.get(tile);if(!cache){cache=new Map();planMasks.set(tile,cache);}
+    const key=floor+':'+rotation;if(cache.has(key))return cache.get(key);
+    const bits=occupancy(tile),path=new Path2D(),y0=Math.max(0,floor*8),y1=Math.min(tile.size.y,y0+8);
+    for(let z=0;z<tile.size.z;z++)for(let x=0;x<tile.size.x;x++){
+      let filled=false;for(let y=y0;y<y1;y++){const i=x+tile.size.x*(z+tile.size.z*y);if(bits[i>>3]&(1<<(i&7))){filled=true;break;}}
+      if(!filled)continue;
+      let rx=x,rz=z;if(rotation===90){rx=tile.size.z-1-z;rz=x;}else if(rotation===180){rx=tile.size.x-1-x;rz=tile.size.z-1-z;}else if(rotation===270){rx=z;rz=tile.size.x-1-x;}
+      path.rect(rx,rz,1,1);
+    }
+    cache.set(key,path);return path;
+  }
   function networkFor(project){if(networkProject!==project){networkProject=project;network=connections(project);}return network;}
   function requestDraw(){if(drawRequest===null&&!destroyed)drawRequest=requestAnimationFrame(()=>{drawRequest=null;draw();});}
   const orbit={azimuth:45,elevation:30,offset:{x:0,y:0}};
@@ -14,6 +28,7 @@ export function createMap(canvas,get,callbacks){
     return [{id:p.id,p,min:[p.x,p.y,p.z],max:[p.x+d.x/16,p.y+d.y/8,p.z+d.z/16],color:room?.color||'#8296a4',label:room?.code||t.name,selected:get().selection?.kind==='placement'&&get().selection.id===p.id}];
   });}
   function camera(list=boxes(),unit=scale){return createCamera({width,height,scale:unit,target:sceneTarget(list),...orbit});}
+  const snap=value=>Math.floor(value*16)/16;
   function screen(x,z){return {x:pan.x+x*scale,z:pan.y+z*scale};}
   function world(x,y){return {x:(x-pan.x)/scale,z:(y-pan.y)/scale};}
   function active(p){const t=tileOf(get().project,p);return t&&p.y<=get().floor&&p.y+t.size.y/8>get().floor;}
@@ -39,16 +54,17 @@ export function createMap(canvas,get,callbacks){
     ctx.lineWidth=1;
     for(let x=Math.floor(from.x);x<=Math.ceil(to.x);x++){
       const sx=Math.round(pan.x+x*scale)+.5;ctx.strokeStyle=x===0?'#394c58':'#23303b';ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,height);ctx.stroke();
-      if(x%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(x),sx+5,Math.min(height-55,Math.max(56,pan.y+5*scale)));}
+      if(x%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(x*16),sx+5,Math.min(height-55,Math.max(56,pan.y+5*scale)));}
     }
     for(let z=Math.floor(from.z);z<=Math.ceil(to.z);z++){
       const sy=Math.round(pan.y+z*scale)+.5;ctx.strokeStyle=z===0?'#394c58':'#23303b';ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(width,sy);ctx.stroke();
-      if(z%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(z),Math.min(width-42,Math.max(15,pan.x-38)),sy+13);}
+      if(z%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(z*16),Math.min(width-42,Math.max(15,pan.x-38)),sy+13);}
     }
   }
   function drawPlacement(p,ghost=false,preview=false){
     const state=get(),project=state.project,tile=tileOf(project,p);if(!tile)return;
     const size=dimensions(tile,p.rotation),point=screen(p.x,p.z),w=size.x/16*scale,h=size.z/16*scale;
+    if(point.x+w<0||point.z+h<0||point.x>width||point.z>height)return;
     const room=project.rooms.find(r=>r.id===p.roomId),color=room?.color||'#8296a4';
     const selected=state.selection?.kind==='placement'&&state.selection.id===p.id;
     const roomSelected=state.selection?.kind==='room'&&state.selection.id===p.roomId;
@@ -57,6 +73,10 @@ export function createMap(canvas,get,callbacks){
     ctx.fillStyle=invalid?'#ac626348':color+(selected?'70':roomSelected?'70':'38');ctx.fillRect(point.x+2,point.z+2,w-4,h-4);
     ctx.strokeStyle=invalid?'#e39494':selected||roomSelected?'#c4e7b8':color+'ba';ctx.lineWidth=selected?2:1;
     if(ghost||preview)ctx.setLineDash([5,4]);ctx.strokeRect(point.x+2.5,point.z+2.5,w-5,h-5);ctx.setLineDash([]);
+    if(!ghost&&tile.asset?.occupancy){
+      ctx.save();ctx.translate(point.x,point.z);ctx.scale(scale/16,scale/16);ctx.fillStyle=color+'68';
+      ctx.fill(slicePath(tile,state.floor-p.y,p.rotation));ctx.restore();
+    }
     if(!ghost){
       ctx.strokeStyle=color+'38';ctx.lineWidth=1;
       for(let x=1;x<size.x/16;x++){ctx.beginPath();ctx.moveTo(point.x+x*scale,point.z+4);ctx.lineTo(point.x+x*scale,point.z+h-4);ctx.stroke();}
@@ -119,8 +139,8 @@ export function createMap(canvas,get,callbacks){
     if(state.ghost)for(const p of state.project.placements)if(!active(p))drawPlacement(p,true);
     for(const p of state.project.placements)if(active(p)&&p.id!==drag?.placement?.id)drawPlacement(p);
     drawPorts();drawGimmicks();
-    if(drag?.placement&&hover){const p={...drag.placement,x:Math.floor(hover.x)-drag.offset.x,z:Math.floor(hover.z)-drag.offset.z};drawPlacement(p,false,true);}
-    else if(state.mode==='paint'&&state.brush?.kind==='tile'&&hover){const t=state.project.tiles.find(t=>t.id===state.brush.id);if(t)drawPlacement({id:'preview',tileId:t.id,x:Math.floor(hover.x),z:Math.floor(hover.z),y:state.floor,rotation:state.brush.rotation||0,roomId:state.activeRoomId},false,true);}
+    if(drag?.placement&&hover){const p={...drag.placement,x:snap(hover.x)-drag.offset.x,z:snap(hover.z)-drag.offset.z};drawPlacement(p,false,true);}
+    else if(state.mode==='paint'&&state.brush?.kind==='tile'&&hover){const t=state.project.tiles.find(t=>t.id===state.brush.id);if(t)drawPlacement({id:'preview',tileId:t.id,x:snap(hover.x),z:snap(hover.z),y:state.floor,rotation:state.brush.rotation||0,roomId:state.activeRoomId},false,true);}
     if(!state.project.placements.length){ctx.fillStyle='#7b919f';ctx.font='13px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.fillText('왼쪽에서 타일을 골라 첫 공간을 배치하세요',width/2,height/2);ctx.textAlign='left';}
     callbacks.zoom?.(Math.round(scale/65*100));
   }
@@ -133,18 +153,18 @@ export function createMap(canvas,get,callbacks){
     if(e.button!==0)return;const state=get();
     if(state.view==='iso'){drag={orbit:true,start:pos,azimuth:orbit.azimuth,elevation:orbit.elevation,moved:false};canvas.setPointerCapture(e.pointerId);return;}
     const p=world(pos.x,pos.y);hover=p;
-    if(state.mode==='paint'&&state.brush?.kind==='tile'){callbacks.place(Math.floor(p.x),state.floor,Math.floor(p.z));return;}
+    if(state.mode==='paint'&&state.brush?.kind==='tile'){callbacks.place(snap(p.x),state.floor,snap(p.z));return;}
     if(state.mode==='gimmick'&&state.brush){const tile=hitTile(p.x,p.z);if(tile){const source=tileOf(state.project,tile),local=inversePoint({x:(p.x-tile.x)*16,y:(state.floor-tile.y)*8+1,z:(p.z-tile.z)*16},source,tile.rotation);callbacks.gimmick(tile,local);}else callbacks.notify('기믹은 배치된 타일 안에 놓아주세요.',true);return;}
     const gimmick=hitGimmick(pos.x,pos.y);if(gimmick){callbacks.select({kind:'gimmick',id:gimmick.id});return;}
     const tile=hitTile(p.x,p.z);callbacks.select(tile?{kind:'placement',id:tile.id}:null);
-    if(tile){drag={placement:{...tile},start:pos,offset:{x:Math.floor(p.x)-tile.x,z:Math.floor(p.z)-tile.z}};canvas.setPointerCapture(e.pointerId);}draw();
+    if(tile){drag={placement:{...tile},start:pos,offset:{x:snap(p.x)-tile.x,z:snap(p.z)-tile.z}};canvas.setPointerCapture(e.pointerId);}draw();
   });
   canvas.addEventListener('pointermove',e=>{const pos=xy(e);hover=world(pos.x,pos.y);
     if(drag?.pan){const next={x:drag.original.x+pos.x-drag.start.x,y:drag.original.y+pos.y-drag.start.y};if(drag.iso)orbit.offset=next;else pan=next;}
     if(drag?.orbit&&(drag.moved||Math.hypot(pos.x-drag.start.x,pos.y-drag.start.y)>4)){drag.moved=true;orbit.azimuth=((drag.azimuth-(pos.x-drag.start.x)*.4)%360+360)%360;orbit.elevation=Math.max(15,Math.min(80,drag.elevation+(pos.y-drag.start.y)*.3));}
-    if(get().view!=='iso')callbacks.cursor?.(Math.floor(hover.x),get().floor,Math.floor(hover.z));requestDraw();});
+    if(get().view!=='iso')callbacks.cursor?.(snap(hover.x),get().floor,snap(hover.z));requestDraw();});
   canvas.addEventListener('pointerup',e=>{if(drag?.orbit&&!drag.moved&&isoCamera){const pos=xy(e),hit=pickBox(isoBoxes,isoCamera,pos.x,pos.y);callbacks.select(hit?{kind:'placement',id:hit.id}:null);}
-    if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:Math.floor(point.x)-drag.offset.x,z:Math.floor(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
+    if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:snap(point.x)-drag.offset.x,z:snap(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
   canvas.addEventListener('pointercancel',()=>{drag=null;draw();});canvas.addEventListener('pointerleave',()=>{if(!drag)hover=null;draw();});canvas.addEventListener('contextmenu',e=>e.preventDefault());
   canvas.addEventListener('wheel',e=>{e.preventDefault();const point=xy(e),before=world(point.x,point.y),next=Math.max(get().view==='iso'?8:20,Math.min(130,scale*(e.deltaY<0?1.12:1/1.12)));
     if(get().view==='iso'){const factor=next/scale;orbit.offset={x:point.x-width/2-(point.x-width/2-orbit.offset.x)*factor,y:point.y-height/2-(point.y-height/2-orbit.offset.y)*factor};}

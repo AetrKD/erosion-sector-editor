@@ -1,28 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {gzipSync} from 'node:zlib';
+import {doorFixture} from './fixtures.mjs';
 import {parseNbt,inspectStructure} from '../dist/nbt.mjs';
-function fixture(size=[16,8,16],marker=false,options={}){
-  const parts=[];const byte=n=>parts.push(Buffer.from([n]));
-  const int=n=>{const b=Buffer.alloc(4);b.writeInt32BE(n);parts.push(b);};
-  const str=s=>{const b=Buffer.from(s),len=Buffer.alloc(2);len.writeUInt16BE(b.length);parts.push(len,b);};
-  byte(10);str('');byte(9);str('size');byte(3);int(3);size.forEach(int);
-  byte(9);str('palette');byte(10);int(1);byte(8);str('Name');str(options.drive?'erosionsector:security_door_drive':'create:copycat_panel');
-  if(marker){byte(10);str('Properties');byte(8);str('facing');str(options.facing||'west');if(options.reversed){byte(8);str('reversed');str('true');}byte(0);}byte(0);
-  const count=options.drive?(options.count??6):1;byte(9);str('blocks');byte(10);int(count);
-  for(let i=0;i<count;i++){
-  byte(9);str('pos');byte(3);int(3);const position=[...(options.pos||[0,1,8])];if(options.drive)position[['north','south'].includes(options.facing)?0:2]+=i;position.forEach(int);byte(3);str('state');int(0);
-  byte(10);str('nbt');byte(8);str('Material');str('minecraft:iron_block');
-  if(options.modern){
-    for(const [key,value] of [['MarkerVersion',options.drive?2:1],['Width',6],['Height',4]]){byte(3);str(key);int(value);}
-    byte(1);str('Required');byte(1);byte(10);str('door_settings');
-    for(const [key,value] of [['type','SECURITY'],['access',options.access||'TERMINAL'],['break_rule','UNLOCKED'],['terminal_command','UNLOCK LAB']]){byte(8);str(key);str(value);}
-    byte(1);str('noise_passes');byte(1);byte(1);str('light_passes');byte(0);byte(0);
-  }
-  byte(0);byte(0);
-  }byte(0);
-  return Buffer.concat(parts);
-}
+function fixture(size=[16,8,16],marker=true,options={}){return doorFixture({size,marker,...options});}
+
 test('gzip Create structure preserves original bytes and identifies mod namespace',async()=>{
   const original=gzipSync(fixture());const tile=await inspectStructure(original,'copycat.nbt');
   assert.deepEqual(tile.size,{x:16,y:8,z:16});assert.ok(tile.asset.namespaces.includes('create'));
@@ -40,8 +22,9 @@ test('six ceiling drives become one outer 6x4 framed connector with one-second s
   await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing:'south',pos:[5,4,15],count:5})),/6개/);
   await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,drive:true,facing:'south',pos:[5,2,15]})),/높이|범위/);
 });
-test('non-grid dimensions and malformed NBT are rejected',async()=>{
-  await assert.rejects(inspectStructure(fixture([15,8,16])),/규격/);
+test('horizontal sizes are free while non-eight-multiple heights and malformed NBT are rejected',async()=>{
+  assert.deepEqual((await inspectStructure(fixture([15,8,16]))).size,{x:15,y:8,z:16});
+  await assert.rejects(inspectStructure(fixture([15,9,16])),/규격/);
   assert.throws(()=>parseNbt(new Uint8Array([10,0,0,9])),/잘렸/);
   await assert.rejects(inspectStructure(new Uint8Array([0,0,0])),/NBT/);
 });

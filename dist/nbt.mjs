@@ -1,4 +1,5 @@
-import {uid,portError} from './core.mjs';
+import {uid,portError,readProject} from './core.mjs';
+import {AIR,encodeOccupancy} from './occupancy.mjs';
 const MAX_FILE=24*1024*1024, MAX_EXPANDED=64*1024*1024;
 export function parseNbt(bytes) {
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),decoder=new TextDecoder();
@@ -53,40 +54,73 @@ export async function inspectStructure(input,name='tile.nbt'){
   const dimensions=root.size;
   if(!Array.isArray(dimensions)||dimensions.length!==3)throw new Error('Create/바닐라 구조물 NBT만 지원합니다. .schem은 먼저 구조물 .nbt로 변환하세요.');
   const [x,y,z]=dimensions;
-  if(![x,y,z].every(Number.isInteger)||x<16||z<16||y<8||x%16||z%16||y%8)throw new Error(`크기 ${x}×${y}×${z}(X×Y×Z)는 규격에 맞지 않습니다. X/Z는 16, Y는 8의 배수여야 합니다.`);
+  if(![x,y,z].every(Number.isInteger)||x<1||z<1||y<8||y%8)throw new Error(`크기 ${x}×${y}×${z}(X×Y×Z)는 규격에 맞지 않습니다. 가로·깊이는 양의 정수, 높이는 8의 배수여야 합니다.`);
   if([x,y,z].some(d=>d>256))throw new Error('첫 버전은 각 축 256블록 이하의 타일을 지원합니다.');
   const palette=root.palette||root.palettes?.[0];
   if(!Array.isArray(palette)||!Array.isArray(root.blocks))throw new Error('블록 목록 또는 팔레트가 없는 구조물입니다.');
   const tile={id:uid('tile'),name:name.replace(/\.nbt$/i,''),category:'가져온 타일',size:{x,y,z},ports:[],asset:null};
-  let markerCount=0;const drives=new Map();
+  let markerCount=0;const drives=new Map(),seen=new Map();
   for(const block of root.blocks){
     if(!Array.isArray(block.pos)||block.pos.length!==3||!Number.isInteger(block.state)||block.state<0||block.state>=palette.length)throw new Error('잘못된 블록 위치 또는 팔레트 참조가 있습니다.');
     const [bx,by,bz]=block.pos;
     if(![bx,by,bz].every(Number.isInteger)||bx<0||bx>=x||by<0||by>=y||bz<0||bz>=z)throw new Error('구조물 범위 밖의 블록이 있습니다.');
     const state=palette[block.state];
-    if(['erosionsector:door_drive','erosionsector:security_door_drive'].includes(state.Name)){
+    if(!state||typeof state.Name!=='string')throw new Error('블록 팔레트 이름이 올바르지 않습니다.');
+    const index=bx+x*(bz+z*by);if(seen.has(index))throw new Error('설계도에 중복된 블록 좌표가 있습니다.');seen.set(index,block);
+    if(['erosionsector:door_drive','erosionsector:security_door_drive','erosionsector:tile_door_drive','erosionsector:tile_security_door_drive'].includes(state.Name)){
       const facing=state.Properties?.facing||'north';if(!['north','south','east','west'].includes(facing))throw new Error('문 구동부 방향이 올바르지 않습니다.');
       const along=['north','south'].includes(facing)?bx:bz,plane=['north','south'].includes(facing)?bz:bx;
       const key=[state.Name,facing,by,plane].join(':');if(!drives.has(key))drives.set(key,[]);
-      drives.get(key).push({bx,by,bz,along,facing,meta:block.nbt||{},security:state.Name==='erosionsector:security_door_drive'});continue;
+      const meta=block.nbt||{},width=meta.Width??6,height=meta.Height??4;
+      if(![[4,4],[6,4],[10,6]].some(([w,h])=>width===w&&height===h))throw new Error('지원하는 문 규격은 4×4, 6×4, 10×6입니다.');
+      drives.get(key).push({bx,by,bz,along,facing,meta,width,height,half:state.Name.includes(':tile_'),security:state.Name.endsWith('security_door_drive')});continue;
     }
 
   }
   for(const row of drives.values()){
     row.sort((a,b)=>a.along-b.along);
-    if(row.length%6)throw new Error('문 천장 구동부는 각 타일 외곽에 같은 종류·방향으로 6개 연속 설치해야 합니다.');
-    for(let offset=0;offset<row.length;offset+=6){
-      const group=row.slice(offset,offset+6),first=group[0],{bx,by,bz,facing,security}=first,settings=doorSettings(first.meta,security);
-      if(group.some((d,i)=>d.along!==first.along+i||JSON.stringify(doorSettings(d.meta,security))!==JSON.stringify(settings)))throw new Error('문 구동부 6개의 간격 또는 설정이 서로 다릅니다.');
+    for(let offset=0;offset<row.length;){
+      const first=row[offset],{bx,by,bz,facing,security,width,height,half}=first,group=row.slice(offset,offset+width),settings=doorSettings(first.meta,security);
+      if(group.length!==width||group.some((d,i)=>d.along!==first.along+i||d.width!==width||d.height!==height||JSON.stringify(doorSettings(d.meta,security))!==JSON.stringify(settings)))throw new Error(`문 구동부 ${width}개의 간격·규격 또는 같은 쪽 설정이 서로 다릅니다.`);
+      if(half){
+        if(group.some(d=>!d.meta.HalfReady||d.meta.LocalRow!==height-1))throw new Error('반쪽 문의 구동부 정보가 올바르지 않습니다.');
+        for(let y0=0;y0<height-1;y0++)for(let col=0;col<width;col++){
+          const px=bx+(['north','south'].includes(facing)?col:0),py=by-height+1+y0,pz=bz+(['east','west'].includes(facing)?col:0);
+          const block=seen.get(px+x*(pz+z*py)),state=block&&palette[block.state];
+          if(!block||state.Name!=='erosionsector:tile_door_part'||state.Properties?.facing!==facing||(state.Properties?.sliding==='true')!==security||!block.nbt?.HalfReady||block.nbt.Width!==width||block.nbt.Height!==height||block.nbt.LocalRow!==y0)throw new Error('타일 안에 반쪽 문의 본체와 프레임을 빠짐없이 포함해 저장하세요.');
+        }
+      }
       const port={id:uid('port'),name:`${security?'보안 문':'일반 문'} ${++markerCount}`,facing,
-        x:facing==='east'?bx+1:facing==='west'?bx:bx+3,z:facing==='south'?bz+1:facing==='north'?bz:bz+3,y:by-3,
-        width:6,height:4,required:true,mount:'ceiling',frame:{sideThickness:.25,headerThickness:.375,bottom:false},doorSettings:settings};
+        x:facing==='east'?bx+1:facing==='west'?bx:bx+width/2,z:facing==='south'?bz+1:facing==='north'?bz:bz+width/2,y:by-(height-1),
+        width,height,required:true,mount:half?'tile-half':'ceiling',frame:half?{sideThickness:.25,headerThickness:width===10?.25:security?.125:.375,bottom:true,bottomThickness:width===10?.25:.125}:{sideThickness:.25,headerThickness:.375,bottom:false},doorSettings:settings,
+        motion:half?(security?(width===10?'RADIAL_THREE':'HORIZONTAL_SPLIT'):(width===10?'VERTICAL_SPLIT':'LIFT')):security?'HORIZONTAL_SPLIT':'LIFT'};
       const error=portError(tile,port);if(error)throw new Error(`문 구동부: ${error}`);tile.ports.push(port);
+      offset+=width;
     }
   }
+  if(!tile.ports.length)throw new Error('타일 설계도에는 외곽의 Erosion Sector 문이 최소 하나 필요합니다.');
   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
   tile.asset={name,bytes:base64(bytes),sha256:Array.from(hash,b=>b.toString(16).padStart(2,'0')).join(''),
     blockCount:root.blocks.length,paletteCount:palette.length,entityCount:root.entities?.length||0,markerCount,
-    namespaces:[...new Set(palette.map(state=>(state.Name||'').split(':')[0]))].filter(Boolean),dataVersion:root.DataVersion||null};
+    namespaces:[...new Set(palette.map(state=>(state.Name||'').split(':')[0]))].filter(Boolean),dataVersion:root.DataVersion||null,
+    occupancy:encodeOccupancy(tile.size,(function*(){for(const block of root.blocks)if(!AIR.has(palette[block.state].Name))yield block.pos;})())};
   return tile;
+}
+/** Rebuild derived collision data from the preserved source instead of trusting a saved mask. */
+export async function restoreProject(input){
+  const project=readProject(input);
+  for(const tile of project.tiles){
+    if(!tile.asset)continue;
+    const bytes=Uint8Array.from(atob(tile.asset.bytes),c=>c.charCodeAt(0)),source=await inspectStructure(bytes,tile.asset.name);
+    if(source.asset.sha256!==tile.asset.sha256||['x','y','z'].some(k=>source.size[k]!==tile.size[k]))throw new Error(`${tile.name}: 설계도 원본과 저장한 크기·식별 정보가 다릅니다.`);
+    const remaining=[...source.ports];
+    for(const port of tile.ports){
+      const index=remaining.findIndex(q=>['facing','x','y','z','width','height'].every(k=>q[k]===port[k])&&q.doorSettings.type===(port.doorSettings?.type||'NORMAL'));
+      if(index<0)throw new Error(`${tile.name}: 문 위치·크기·종류가 원본 설계도와 다릅니다. 설계도를 다시 연결하세요.`);
+      const [actual]=remaining.splice(index,1);port.frame=actual.frame;port.mount=actual.mount;port.motion=actual.motion;
+    }
+    if(remaining.length)throw new Error(`${tile.name}: 원본 설계도의 문을 모두 포함해야 합니다.`);
+    tile.asset.occupancy=source.asset.occupancy;tile.asset.markerCount=source.asset.markerCount;
+  }
+  return project;
 }

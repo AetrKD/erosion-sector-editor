@@ -1,14 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
-import {gzipSync} from 'node:zlib';
-function fixture(){
-  const parts=[];const byte=n=>parts.push(Buffer.from([n]));const int=n=>{const b=Buffer.alloc(4);b.writeInt32BE(n);parts.push(b);};
-  const str=s=>{const b=Buffer.from(s),len=Buffer.alloc(2);len.writeUInt16BE(b.length);parts.push(len,b);};
-  byte(10);str('');byte(9);str('size');byte(3);int(3);[16,8,16].forEach(int);
-  byte(9);str('palette');byte(10);int(1);byte(8);str('Name');str('create:copycat_panel');byte(0);
-  byte(9);str('blocks');byte(10);int(1);byte(9);str('pos');byte(3);int(3);[0,1,8].forEach(int);byte(3);str('state');int(0);byte(0);byte(0);
-  return gzipSync(Buffer.concat(parts));
-}
+import {doorFixture} from './fixtures.mjs';
+function fixture(){return doorFixture({compressed:true});}
+
 test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);});
 
 test('plan connection cache refreshes after edits and undo without recalculating during view-only redraws',async({page})=>{
@@ -104,6 +98,45 @@ test('stage download uses the Erosion Sector file extension and schema',async({p
   const pending=page.waitForEvent('download');await page.locator('[data-action=export]').click();const download=await pending;
   expect(download.suggestedFilename()).toMatch(/\.esfile$/);
   const stage=JSON.parse(await readFile(await download.path(),'utf8'));expect(stage.format).toBe('erosionsector-stage');expect(stage.runtimeReady).toBe(false);
+});
+
+test('freeform design tiles use block dimensions and require an initial door',async({page})=>{
+  await page.locator('[data-action=new-tile]').click();const dialog=page.locator('#dialog');
+  await dialog.getByLabel('가로 X · 블록',{exact:true}).fill('17');
+  await dialog.getByLabel('깊이 Z · 블록',{exact:true}).fill('19');
+  await dialog.getByLabel('높이 Y · 블록',{exact:true}).fill('16');
+  await dialog.getByRole('button',{name:'타일 만들기',exact:true}).click();
+  await expect(dialog).not.toBeVisible();const tile=(await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1);
+  expect(tile.size).toEqual({x:17,y:16,z:19});expect(tile.ports).toHaveLength(1);
+  await page.locator('[data-edit-port]').click();await dialog.locator('[data-remove-port]').click();
+  await expect(page.locator('#toast')).toContainText('최소 하나');
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).ports).toHaveLength(1);
+});
+
+test('NBT occupancy permits overlapping air volumes, blocks a real collision, and saves directional conditions',async({page})=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const bytes=doorFixture({size:[17,8,19],width:4,height:4,access:'ALARM',compressed:true});
+  const dialog=page.locator('#dialog');
+  async function importAndPlace(name,x){
+    await page.locator('#nbtInput').setInputFiles({name,mimeType:'application/octet-stream',buffer:bytes});
+    await expect(page.locator('#inspectorContent')).toContainText(name);
+    await page.getByRole('button',{name:'좌표로 배치',exact:true}).click();
+    await dialog.getByLabel('X',{exact:true}).fill(String(x));await dialog.getByLabel('Z',{exact:true}).fill('64');
+    await dialog.getByRole('button',{name:'배치',exact:true}).click();
+  }
+  await importAndPlace('freeform_a.nbt',64);await expect(dialog).not.toBeVisible();
+  await importAndPlace('freeform_b.nbt',66);await expect(dialog).not.toBeVisible();
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).placements.at(-1).x).toBe(66/16);
+  await page.getByRole('button',{name:'타일 원본과 연결구 편집 →'}).click();
+  await page.locator('[data-edit-port]').click();await dialog.getByLabel('이쪽에서 여는 조건',{exact:true}).selectOption('HOLD');
+  await dialog.getByRole('button',{name:'저장',exact:true}).click();
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).ports[0].doorSettings.access).toBe('HOLD');
+  await page.getByRole('button',{name:'좌표로 배치',exact:true}).click();
+  await dialog.getByLabel('X',{exact:true}).fill('64');await dialog.getByLabel('Z',{exact:true}).fill('64');
+  await dialog.getByRole('button',{name:'배치',exact:true}).click();
+  await expect(dialog).toBeVisible();await expect(page.locator('#toast')).toContainText('블록과 겹칩니다');
+  await page.screenshot({path:'artifacts/freeform-block-collision.png'});
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).placements).toHaveLength(9);expect(errors).toEqual([]);
 });
 test('gimmicks can be placed and connected through an event',async({page})=>{
   await page.locator('[data-tab=gimmicks]').click();await page.locator('[data-gimmick-type=terminal]').click();

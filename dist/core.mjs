@@ -1,4 +1,8 @@
+import {occupancy,conflictingBlock} from './occupancy.mjs';
+// Stored X/Z coordinates retain the 16-block view unit; placement snaps to 1/16 of it.
 export const CELL = Object.freeze({x:16,y:8,z:16});
+export const TILE_RULES=Object.freeze({horizontalStep:1,heightStep:8,minDoors:1,placementPolicy:'non-air-only'});
+const horizontal=value=>Number.isInteger(value*16)&&Math.abs(value)<=1024;
 export const FACES = ['north','east','south','west'];
 export const OPPOSITE = {north:'south',south:'north',east:'west',west:'east'};
 export const KINDS = {
@@ -49,6 +53,7 @@ export function worldPorts(tile,placement) {
 }
 export function samePort(a,b) {
   return a.placementId!==b.placementId && OPPOSITE[a.facing]===b.facing &&
+    (a.doorSettings?.type||'NORMAL')===(b.doorSettings?.type||'NORMAL') &&
     Math.abs(a.x-b.x)<0.001 && Math.abs(a.y-b.y)<0.001 && Math.abs(a.z-b.z)<0.001 &&
     a.width===b.width && a.height===b.height;
 }
@@ -77,13 +82,15 @@ export function connections(project) {
 export function placementError(project,candidate,ignoreId=candidate.id) {
   const tile=tileOf(project,candidate);
   if(!tile) return '타일 원본을 찾을 수 없습니다.';
-  if(![candidate.x,candidate.y,candidate.z].every(v=>Number.isInteger(v)&&Math.abs(v)<=1024)) return '배치 좌표는 -1024~1024의 정수여야 합니다.';
+  if(!horizontal(candidate.x)||!horizontal(candidate.z)||!Number.isInteger(candidate.y)||Math.abs(candidate.y)>1024) return '가로 좌표는 1블록, 층 높이는 8블록 단위여야 합니다.';
   if(![0,90,180,270].includes(candidate.rotation)) return '회전은 0/90/180/270도만 가능합니다.';
   const occupied=bounds(tile,candidate);
   for(const other of project.placements) {
     if(other.id===ignoreId) continue;
     const otherTile=tileOf(project,other);
-    if(otherTile && overlaps(occupied,bounds(otherTile,other))) return '다른 타일의 저장 범위와 겹칩니다. 높이까지 포함해 확인하세요.';
+    if(otherTile){const at=conflictingBlock(tile,candidate,occupied,otherTile,other,bounds(otherTile,other));
+      if(at)return tile.asset?.occupancy&&otherTile.asset?.occupancy?`다른 타일의 블록과 겹칩니다. 블록 좌표 X ${at.x}, Y ${at.y}, Z ${at.z}`:'설계도 점유 정보가 없는 타일의 저장 범위와 겹칩니다. 실제 설계도를 연결해 블록 겹침을 검사하세요.';
+    }
   }
   return '';
 }
@@ -103,8 +110,10 @@ export function validate(project) {
   if(project.placements.length===0) add('error','배치된 타일이 없습니다.');
   const used=new Set(project.placements.map(p=>p.tileId));
   for(const tile of project.tiles.filter(t=>used.has(t.id))) {
+    if(!tile.ports.length)add('error',`${tile.name}: 문 연결구가 최소 하나 필요합니다.`,{kind:'library',id:tile.id});
     if(!tile.asset) add('warning',`${tile.name}: 실제 Create 설계도를 연결해야 합니다.`,{kind:'library',id:tile.id});
-    else if(!tile.asset.markerCount) add('warning',`${tile.name}: Erosion Sector 문 마커가 없습니다. 연결구는 수동 설정 상태입니다.`,{kind:'library',id:tile.id});
+    else if(!tile.asset.markerCount) add('error',`${tile.name}: 설계도에 Erosion Sector 문이 최소 하나 필요합니다.`,{kind:'library',id:tile.id});
+    else if(!tile.asset.occupancy)add('warning',`${tile.name}: 설계도를 다시 연결하면 실제 블록으로 겹침을 검사할 수 있습니다.`,{kind:'library',id:tile.id});
     for(const port of tile.ports) {const error=portError(tile,port);if(error) add('error',`${tile.name}: ${error}`,{kind:'library',id:tile.id});}
   }
   for(let i=0;i<project.placements.length;i++) {
@@ -112,9 +121,10 @@ export function validate(project) {
     if(!tile) {add('error','원본이 없는 타일 배치입니다.',{kind:'placement',id:placement.id});continue;}
     if(!project.rooms.some(r=>r.id===placement.roomId)) add('error',`${placement.name||tile.name}: 방을 지정하세요.`,{kind:'placement',id:placement.id});
     for(let j=i+1;j<project.placements.length;j++) {
-      if(occupied[j]&&overlaps(occupied[i],occupied[j])) {
+      const at=occupied[j]&&conflictingBlock(tile,placement,occupied[i],tileIndex.get(project.placements[j].tileId),project.placements[j],occupied[j]);
+      if(at) {
         const other=project.placements[j],otherTile=tileIndex.get(other.tileId);
-        add('error',`${placement.name||tile.name}과 ${other.name||otherTile.name}의 공간이 겹칩니다.`,{kind:'placement',id:placement.id});
+        add('error',`${placement.name||tile.name}과 ${other.name||otherTile.name}이 겹칩니다. 충돌 블록: (${at.x}, ${at.y}, ${at.z}).`,{kind:'placement',id:placement.id});
       }
     }
   }
@@ -152,7 +162,7 @@ export function validate(project) {
 }
 export function exportStage(project) {
   const network=connections(project);
-  return {format:'erosionsector-stage',version:1,status:'draft',runtimeReady:false,cellSize:CELL,
+  return {format:'erosionsector-stage',version:1,status:'draft',runtimeReady:false,cellSize:CELL,tileRules:TILE_RULES,
     stage:{id:project.id,name:project.name,description:project.description,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers},
     zones:clone(project.zones),rooms:clone(project.rooms),
     tiles:project.tiles.filter(t=>project.placements.some(p=>p.tileId===t.id)).map(t=>({id:t.id,name:t.name,size:t.size,ports:t.ports,asset:t.asset?{name:t.asset.name,sha256:t.asset.sha256,markerCount:t.asset.markerCount}:null})),
@@ -208,12 +218,16 @@ export function readProject(input) {
   }
   if(!integer(p.minPlayers,1,16)||!integer(p.maxPlayers,p.minPlayers,16)) fail('참가 인원 설정이 올바르지 않습니다.');
   for(const t of p.tiles) {
-    if(!text(t.name)||!text(t.category)||!t.size||!integer(t.size.x,16,256)||t.size.x%16||!integer(t.size.y,8,256)||t.size.y%8||!integer(t.size.z,16,256)||t.size.z%16) fail('타일 크기는 X/Z 16, Y 8의 배수여야 합니다.');
-    if(!Array.isArray(t.ports)||t.ports.length>128||new Set(t.ports.map(port=>port?.id)).size!==t.ports.length) fail('연결구 목록이 올바르지 않습니다.');
+    if(!text(t.name)||!text(t.category)||!t.size||!integer(t.size.x,1,256)||!integer(t.size.y,8,256)||t.size.y%8||!integer(t.size.z,1,256)) fail('타일 가로·깊이는 양의 정수, 높이는 8의 배수여야 합니다.');
+    if(!Array.isArray(t.ports)||!t.ports.length||t.ports.length>128||new Set(t.ports.map(port=>port?.id)).size!==t.ports.length) fail('타일에는 문 연결구가 최소 하나 필요합니다.');
     for(const port of t.ports) if(!port||!text(port.id)||!text(port.name)||portError(t,port)) fail('타일 연결구가 올바르지 않습니다.');
     if(t.asset && (!text(t.asset.name,250)||typeof t.asset.bytes!=='string'||t.asset.bytes.length>34_000_000||!/^[A-Za-z0-9+/]*={0,2}$/.test(t.asset.bytes)||!text(t.asset.sha256,64)||!Array.isArray(t.asset.namespaces)||t.asset.namespaces.some(n=>!text(n,100))||!integer(t.asset.blockCount,0,16_777_216)||!integer(t.asset.paletteCount,0,1_000_000)||!integer(t.asset.markerCount,0,128))) fail('설계도 데이터가 올바르지 않습니다.');
+    if(t.asset?.occupancy){const mask=t.asset.occupancy;
+      if(typeof mask.bits!=='string'||mask.bits.length>2_800_000||!/^[A-Za-z0-9+/]*={0,2}$/.test(mask.bits)||!integer(mask.count,0,t.size.x*t.size.y*t.size.z))fail('설계도 블록 점유 데이터가 올바르지 않습니다.');
+      occupancy(t);
+    }
   }
-  for(const q of p.placements) if(!text(q.tileId)||!text(q.roomId)||!text(q.name)||![q.x,q.y,q.z].every(v=>integer(v,-1024,1024))||![0,90,180,270].includes(q.rotation)) fail('타일 배치 데이터가 올바르지 않습니다.');
+  for(const q of p.placements) if(!text(q.tileId)||!text(q.roomId)||!text(q.name)||!horizontal(q.x)||!horizontal(q.z)||!integer(q.y,-1024,1024)||![0,90,180,270].includes(q.rotation)) fail('타일 배치 데이터가 올바르지 않습니다.');
   for(const r of p.rooms) if(!text(r.name)||!text(r.code)||!text(r.zoneId)||!/^#[0-9a-f]{6}$/i.test(r.color)) fail('방 정보가 올바르지 않습니다.');
   for(const z of p.zones) if(!text(z.name)||!/^#[0-9a-f]{6}$/i.test(z.color)) fail('구역 정보가 올바르지 않습니다.');
   for(const g of p.gimmicks) if(!KINDS[g.type]||!text(g.name)||!text(g.placementId)||!g.position||!Object.values(g.position).every(Number.isFinite)||!['x','y','z'].every(k=>Number.isFinite(g.position[k]))||!g.settings||typeof g.settings!=='object') fail('기믹 정보가 올바르지 않습니다.');
