@@ -16,6 +16,11 @@ export const KINDS = {
 };
 export const uid = prefix => prefix + '_' + (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
 export const clone = value => structuredClone(value);
+// Always relative to tile/: the set directory is part of the identity.
+export function tileReference(value){
+  return typeof value==='string'&&value.length<=512&&value.split('/').length>=2&&/\.nbt$/i.test(value)&&
+    value.split('/').every(part=>part&&part!=='.'&&part!=='..'&&!/[\\<>:"|?*\u0000-\u001f]/.test(part));
+}
 export function tileOf(project, placement) { return project.tiles.find(t=>t.id===placement.tileId); }
 export function dimensions(tile, rotation=0) {
   return rotation % 180 === 0 ? {...tile.size} : {x:tile.size.z,y:tile.size.y,z:tile.size.x};
@@ -113,7 +118,7 @@ export function validate(project) {
     if(!tile.ports.length)add('error',`${tile.name}: 문 연결구가 최소 하나 필요합니다.`,{kind:'library',id:tile.id});
     if(!tile.asset) add('warning',`${tile.name}: 실제 Create 설계도를 연결해야 합니다.`,{kind:'library',id:tile.id});
     else if(!tile.asset.markerCount) add('error',`${tile.name}: 설계도에 Erosion Sector 문이 최소 하나 필요합니다.`,{kind:'library',id:tile.id});
-    else if(!tile.asset.occupancy)add('warning',`${tile.name}: 설계도를 다시 연결하면 실제 블록으로 겹침을 검사할 수 있습니다.`,{kind:'library',id:tile.id});
+    else if(!tile.asset.bytes)add('warning',`${tile.name}: 타일 폴더에서 ${tile.asset.reference||tile.asset.name} 원본을 연결하세요. 연결 전에는 저장 범위 전체로 겹침을 검사합니다.`,{kind:'library',id:tile.id});
     for(const port of tile.ports) {const error=portError(tile,port);if(error) add('error',`${tile.name}: ${error}`,{kind:'library',id:tile.id});}
   }
   for(let i=0;i<project.placements.length;i++) {
@@ -162,10 +167,10 @@ export function validate(project) {
 }
 export function exportStage(project) {
   const network=connections(project);
-  return {format:'erosionsector-stage',version:1,status:'draft',runtimeReady:false,cellSize:CELL,tileRules:TILE_RULES,
-    stage:{id:project.id,name:project.name,description:project.description,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers},
+  return {format:'erosionsector-stage',version:2,status:'draft',runtimeReady:false,cellSize:CELL,tileRules:TILE_RULES,
+    stage:{id:project.id,name:project.name,description:project.description,chapter:clone(project.chapter),missionCode:project.missionCode,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers},
     zones:clone(project.zones),rooms:clone(project.rooms),
-    tiles:project.tiles.filter(t=>project.placements.some(p=>p.tileId===t.id)).map(t=>({id:t.id,name:t.name,size:t.size,ports:t.ports,asset:t.asset?{name:t.asset.name,sha256:t.asset.sha256,markerCount:t.asset.markerCount}:null})),
+    tiles:project.tiles.map(t=>({id:t.id,name:t.name,category:t.category,size:clone(t.size),ports:clone(t.ports),asset:t.asset?{name:t.asset.name,reference:t.asset.reference,sha256:t.asset.sha256,blockCount:t.asset.blockCount,paletteCount:t.asset.paletteCount,entityCount:t.asset.entityCount,markerCount:t.asset.markerCount,namespaces:clone(t.asset.namespaces),dataVersion:t.asset.dataVersion}:null})),
     placements:project.placements.map(p=>({...p,blockPosition:{x:p.x*16,y:p.y*8,z:p.z*16}})),
     connections:network.pairs.map(({a,b})=>({from:{placementId:a.placementId,portId:a.id},to:{placementId:b.placementId,portId:b.id}})),
     gimmicks:clone(project.gimmicks),links:clone(project.links),validation:validate(project)};
@@ -193,7 +198,7 @@ export function demoProject() {
     {id:'g6',type:'extraction',name:'복귀 집결 지점',placementId:'p1',position:{x:11,y:1,z:8},settings:{duration:10}}
   ];
   return {format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
-    description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',minPlayers:1,maxPlayers:4,
+    description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',chapter:{id:'a',name:'관측 시설',description:''},missionCode:'A1',minPlayers:1,maxPlayers:4,
     tiles,placements,gimmicks,links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
     zones:[{id:'z1',name:'진입 시설',color:'#78968d'},{id:'z2',name:'관측 연구동',color:'#748eae'}],
     rooms:[{id:'r1',code:'A-101',name:'진입실',zoneId:'z1',color:'#7ba392'},{id:'r2',code:'A-102',name:'진입 복도',zoneId:'z1',color:'#6c8992'},
@@ -202,7 +207,7 @@ export function demoProject() {
       {id:'r7',code:'B-204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]};
 }
 export function emptyProject() {
-  const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.description='';p.placements=[];p.gimmicks=[];p.links=[];
+  const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.placements=[];p.gimmicks=[];p.links=[];
   p.rooms=[{id:'r1',code:'A-101',name:'첫 번째 방',zoneId:'z1',color:'#7ba392'}];p.zones=[p.zones[0]];return p;
 }
 export function readProject(input) {
@@ -212,6 +217,8 @@ export function readProject(input) {
   const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
   if(!p||p.format!=='erosionsector-project'||p.version!==1) fail('지원하는 Erosion Sector 프로젝트 파일이 아닙니다.');
   if(!text(p.id)||!text(p.name)||!text(p.description,3000)) fail('프로젝트 이름 또는 설명이 올바르지 않습니다.');
+  p.chapter??={id:'',name:'',description:''};p.missionCode??='';
+  if(!p.chapter||!text(p.chapter.id)||!text(p.chapter.name)||!text(p.chapter.description,3000)||!text(p.missionCode))fail('챕터 또는 미션 정보가 올바르지 않습니다.');
   for(const [key,max] of [['tiles',200],['placements',1000],['gimmicks',3000],['links',5000],['rooms',1000],['zones',100]]) {
     if(!Array.isArray(p[key])||p[key].length>max) fail(`${key} 목록 크기가 올바르지 않습니다.`);
     if(new Set(p[key].map(x=>x?.id)).size!==p[key].length||p[key].some(x=>!x||!text(x.id))) fail(`${key}에 중복되거나 잘못된 ID가 있습니다.`);
@@ -221,7 +228,7 @@ export function readProject(input) {
     if(!text(t.name)||!text(t.category)||!t.size||!integer(t.size.x,1,256)||!integer(t.size.y,8,256)||t.size.y%8||!integer(t.size.z,1,256)) fail('타일 가로·깊이는 양의 정수, 높이는 8의 배수여야 합니다.');
     if(!Array.isArray(t.ports)||!t.ports.length||t.ports.length>128||new Set(t.ports.map(port=>port?.id)).size!==t.ports.length) fail('타일에는 문 연결구가 최소 하나 필요합니다.');
     for(const port of t.ports) if(!port||!text(port.id)||!text(port.name)||portError(t,port)) fail('타일 연결구가 올바르지 않습니다.');
-    if(t.asset && (!text(t.asset.name,250)||typeof t.asset.bytes!=='string'||t.asset.bytes.length>34_000_000||!/^[A-Za-z0-9+/]*={0,2}$/.test(t.asset.bytes)||!text(t.asset.sha256,64)||!Array.isArray(t.asset.namespaces)||t.asset.namespaces.some(n=>!text(n,100))||!integer(t.asset.blockCount,0,16_777_216)||!integer(t.asset.paletteCount,0,1_000_000)||!integer(t.asset.markerCount,0,128))) fail('설계도 데이터가 올바르지 않습니다.');
+    if(t.asset && (!text(t.asset.name,250)||(t.asset.bytes!==undefined&&(typeof t.asset.bytes!=='string'||t.asset.bytes.length>34_000_000||!/^[A-Za-z0-9+/]*={0,2}$/.test(t.asset.bytes)))||(t.asset.reference!==undefined&&!tileReference(t.asset.reference))||typeof t.asset.sha256!=='string'||!/^[a-f0-9]{64}$/.test(t.asset.sha256)||!Array.isArray(t.asset.namespaces)||t.asset.namespaces.some(n=>!text(n,100))||!integer(t.asset.blockCount,0,16_777_216)||!integer(t.asset.paletteCount,0,1_000_000)||!integer(t.asset.markerCount,0,128))) fail('설계도 데이터 또는 tile 폴더 기준 경로가 올바르지 않습니다.');
     if(t.asset?.occupancy){const mask=t.asset.occupancy;
       if(typeof mask.bits!=='string'||mask.bits.length>2_800_000||!/^[A-Za-z0-9+/]*={0,2}$/.test(mask.bits)||!integer(mask.count,0,t.size.x*t.size.y*t.size.z))fail('설계도 블록 점유 데이터가 올바르지 않습니다.');
       occupancy(t);

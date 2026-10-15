@@ -1,4 +1,4 @@
-import {uid,portError,readProject} from './core.mjs';
+import {uid,portError,readProject,tileReference} from './core.mjs';
 import {AIR,encodeOccupancy} from './occupancy.mjs';
 const MAX_FILE=24*1024*1024, MAX_EXPANDED=64*1024*1024;
 export function parseNbt(bytes) {
@@ -111,8 +111,14 @@ export async function restoreProject(input){
   const project=readProject(input);
   for(const tile of project.tiles){
     if(!tile.asset)continue;
+    if(!tile.asset.bytes){delete tile.asset.occupancy;continue;}
     const bytes=Uint8Array.from(atob(tile.asset.bytes),c=>c.charCodeAt(0)),source=await inspectStructure(bytes,tile.asset.name);
-    if(source.asset.sha256!==tile.asset.sha256||['x','y','z'].some(k=>source.size[k]!==tile.size[k]))throw new Error(`${tile.name}: 설계도 원본과 저장한 크기·식별 정보가 다릅니다.`);
+    mergeTileSource(tile,source);
+  }
+  return project;
+}
+function mergeTileSource(tile,source){
+    if(source.asset.sha256!==tile.asset.sha256||['x','y','z'].some(k=>source.size[k]!==tile.size[k]))throw new Error(`${tile.name}: 참조 경로의 NBT가 저장 당시 원본과 다릅니다. 설계도 교체로 명시적으로 갱신하세요.`);
     const remaining=[...source.ports];
     for(const port of tile.ports){
       const index=remaining.findIndex(q=>['facing','x','y','z','width','height'].every(k=>q[k]===port[k])&&q.doorSettings.type===(port.doorSettings?.type||'NORMAL'));
@@ -120,7 +126,30 @@ export async function restoreProject(input){
       const [actual]=remaining.splice(index,1);port.frame=actual.frame;port.mount=actual.mount;port.motion=actual.motion;
     }
     if(remaining.length)throw new Error(`${tile.name}: 원본 설계도의 문을 모두 포함해야 합니다.`);
-    tile.asset.occupancy=source.asset.occupancy;tile.asset.markerCount=source.asset.markerCount;
+    tile.asset={...source.asset,...(tile.asset.reference?{reference:tile.asset.reference}:{})};
+}
+
+/** webkitRelativePath is supplied by directory inputs in Chrome, Edge and Firefox. */
+export async function loadTileFolder(input,fileList){
+  const project=readProject(input),files=new Map();let total=0;
+  // A new folder selection replaces the source root; never retain another root's bytes.
+  for(const tile of project.tiles)if(tile.asset){delete tile.asset.bytes;delete tile.asset.occupancy;}
+  for(const file of fileList){
+    if(!/\.nbt$/i.test(file.name))continue;
+    const parts=(file.webkitRelativePath||'').split('/'),root=parts.shift();let path=parts.join('/');
+    if(root!=='tile'&&path.startsWith('tile/'))path=path.slice(5);
+    if(!tileReference(path))throw new Error('타일셋 폴더들을 포함하는 tile 폴더를 선택하세요. 타일 경로는 타일셋/타일이름.nbt 형태여야 합니다.');
+    if(files.has(path))throw new Error('중복된 타일 경로입니다: '+path);
+    total+=file.size;if(file.size>MAX_FILE||total>MAX_EXPANDED||files.size>=200)throw new Error('타일 폴더는 NBT 파일당 24MB, 합계 64MB, 200개 이하로 연결하세요.');
+    files.set(path,file);
   }
-  return project;
+  if(!files.size)throw new Error('선택한 폴더에 타일 NBT가 없습니다.');
+  let linked=0,added=0;
+  for(const [path,file] of files){
+    const source=await inspectStructure(await file.arrayBuffer(),file.name);source.asset.reference=path;
+    const targets=project.tiles.filter(t=>t.asset?.reference===path);
+    if(targets.length){for(const tile of targets){mergeTileSource(tile,source);linked++;}}
+    else{project.tiles.push(source);added++;}
+  }
+  return {project:readProject(project),linked,added};
 }

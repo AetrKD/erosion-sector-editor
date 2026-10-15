@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {packStage,unpackStage} from '../dist/stage-file.mjs';
 import {doorFixture} from './fixtures.mjs';
 function fixture(){return doorFixture({compressed:true});}
 
@@ -80,24 +82,35 @@ test('same XZ overlap is blocked inside a tall tile and allowed above its height
   await expect(dialog).not.toBeVisible();expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).placements).toBe(8);
   await page.locator('[data-action=undo]').click();expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).placements).toBe(7);
 });
-test('Create NBT import, project download and project restore preserve source bytes',async({page})=>{
+test('NBT stays outside the stage archive and exact folder paths restore the source',async({page})=>{
   const bytes=fixture();await page.locator('#nbtInput').setInputFiles({name:'copycat_test.nbt',mimeType:'application/octet-stream',buffer:bytes});
   await expect(page.locator('#inspectorContent')).toContainText('copycat_test.nbt');
   await expect(page.locator('#inspectorContent')).toContainText('포함 네임스페이스: create');
+  await page.getByLabel('타일 경로 · tile 폴더 기준',{exact:true}).fill('연구소/copycat_test.nbt');await page.getByLabel('타일 경로 · tile 폴더 기준',{exact:true}).press('Tab');
   const downloadPromise=page.waitForEvent('download');await page.locator('[data-action=save]').click();const download=await downloadPromise;
-  const saved=await readFile(await download.path(),'utf8');const project=JSON.parse(saved);
-  expect(download.suggestedFilename()).toMatch(/\.esproject$/);expect(project.format).toBe('erosionsector-project');
-  expect(Buffer.from(project.tiles.at(-1).asset.bytes,'base64')).toEqual(bytes);
-  await page.locator('#projectInput').setInputFiles({name:'backup.esproject',mimeType:'application/json',buffer:Buffer.from(saved)});
-  await expect(page.locator('#toast')).toContainText('프로젝트를 불러왔습니다');
-  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBe(project.tiles.at(-1).asset.bytes);
+  const saved=await readFile(await download.path()),project=unpackStage(saved);
+  expect(download.suggestedFilename()).toMatch(/\.esfile$/);expect(project.tiles.at(-1).asset.reference).toBe('연구소/copycat_test.nbt');
+  expect(project.tiles.at(-1).asset.bytes).toBeUndefined();expect(project.tiles.at(-1).asset.occupancy).toBeUndefined();
+  await page.locator('#projectInput').setInputFiles({name:'backup.esfile',mimeType:'application/zip',buffer:saved});
+  await expect(page.locator('#toast')).toContainText('스테이지를 불러왔습니다');
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBeUndefined();
+  await page.locator('[data-library-tile="'+project.tiles.at(-1).id+'"]').click();await expect(page.locator('#inspectorContent')).toContainText('원본 미연결');
+  const folder=path.resolve('artifacts/tile-fixture-'+crypto.randomUUID(),'tile');await mkdir(path.join(folder,'연구소'),{recursive:true});await mkdir(path.join(folder,'공장'),{recursive:true});
+  await writeFile(path.join(folder,'연구소/copycat_test.nbt'),bytes);await writeFile(path.join(folder,'공장/copycat_test.nbt'),bytes);
+  await page.locator('#tileFolderInput').setInputFiles(folder);await expect(page.locator('#toast')).toContainText('1개 복원 · 1개 추가');
+  let snapshot=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());expect(snapshot.tiles.find(t=>t.id===project.tiles.at(-1).id).asset.bytes).toBe(bytes.toString('base64'));
+  expect(snapshot.tiles.at(-1).asset.reference).toBe('공장/copycat_test.nbt');
+  await page.locator('#projectInput').setInputFiles({name:'again.esfile',mimeType:'application/zip',buffer:saved});await expect(page.locator('#toast')).toContainText('스테이지를 불러왔습니다');
+  snapshot=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());expect(snapshot.tiles.find(t=>t.id===project.tiles.at(-1).id).asset.bytes).toBe(bytes.toString('base64'));
   await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);
-  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBe(project.tiles.at(-1).asset.bytes);
+  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.find(t=>t.id===project.tiles.at(-1).id).asset.bytes).toBe(bytes.toString('base64'));
 });
-test('stage download uses the Erosion Sector file extension and schema',async({page})=>{
-  const pending=page.waitForEvent('download');await page.locator('[data-action=export]').click();const download=await pending;
-  expect(download.suggestedFilename()).toMatch(/\.esfile$/);
-  const stage=JSON.parse(await readFile(await download.path(),'utf8'));expect(stage.format).toBe('erosionsector-stage');expect(stage.runtimeReady).toBe(false);
+test('single stage save retains chapter and mission metadata and replaces separate project/export actions',async({page})=>{
+  await page.locator('#projectName').click();await page.getByLabel('챕터 이름',{exact:true}).fill('침식 시설');await page.getByLabel('미션 코드',{exact:true}).fill('B2');await page.getByLabel('챕터 설명',{exact:true}).fill('두 번째 탐사');
+  await page.locator('#dialog').getByRole('button',{name:'저장',exact:true}).click();
+  const pending=page.waitForEvent('download');await page.locator('[data-action=save]').click();const download=await pending;
+  expect(download.suggestedFilename()).toMatch(/\.esfile$/);const stage=unpackStage(await readFile(await download.path()));expect(stage.chapter.name).toBe('침식 시설');expect(stage.chapter.description).toBe('두 번째 탐사');expect(stage.missionCode).toBe('B2');
+  expect(await page.locator('[data-action=export]').count()).toBe(0);
 });
 
 test('freeform design tiles use block dimensions and require an initial door',async({page})=>{
@@ -209,7 +222,7 @@ test('clicking stacked geometry selects the visible upper tile',async({page})=>{
   const project=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());
   project.placements=[{id:'upper',tileId:'start',x:0,y:1,z:0,rotation:0,roomId:'r2',name:'위쪽 타일'},{id:'lower',tileId:'start',x:0,y:0,z:0,rotation:0,roomId:'r1',name:'아래쪽 타일'}];
   project.gimmicks=[];project.links=[];
-  await page.locator('#projectInput').setInputFiles({name:'stacked.esproject',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});
+  await page.locator('#projectInput').setInputFiles({name:'stacked.esfile',mimeType:'application/zip',buffer:Buffer.from(packStage(project))});
   await page.locator('[data-view=iso]').click();await page.getByRole('button',{name:'시점 초기화',exact:true}).click();
   const box=await page.locator('#map').boundingBox();
   await page.locator('#map').click({position:{x:box.width/2,y:box.height/2}});

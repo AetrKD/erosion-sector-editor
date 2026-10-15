@@ -8,13 +8,13 @@
 <body>
   <header class="app-header">
     <a class="brand" href="./" aria-label="Erosion Sector 스테이지 에디터"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>Erosion Sector</strong><span class="brand-divider"></span><span class="brand-sub">스테이지 에디터</span><span class="version">ALPHA 01</span></a>
-    <nav class="header-actions" aria-label="프로젝트 작업">
+    <nav class="header-actions" aria-label="스테이지 작업">
       <span id="saveStatus" class="save-status" aria-live="polite">불러오는 중</span>
-      <button data-action="new" class="quiet">새 프로젝트</button><button data-action="open" class="quiet">불러오기</button>
-      <button data-action="save" class="button">프로젝트 저장 <span>↓</span></button><button data-action="export" class="button primary">스테이지 내보내기 <span>↗</span></button>
+      <button data-action="new" class="quiet">새 스테이지</button><button data-action="open" class="quiet">불러오기</button>
+      <button data-action="tile-folder" class="button">타일 폴더 연결</button><button data-action="save" class="button primary">스테이지 저장 <span>↓</span></button>
     </nav>
   </header>
-  <div class="project-bar"><div class="project-heading"><span class="project-symbol">A1</span><div><button id="projectName" class="project-title" data-action="project"></button><div class="project-caption">공간을 연결하고, 임무를 설계하세요.</div></div><span class="draft-badge">설계 초안</span></div><div class="project-summary" id="projectSummary"></div><button class="quiet" data-action="help">사용 가이드 <span>?</span></button></div>
+  <div class="project-bar"><div class="project-heading"><span id="missionBadge" class="project-symbol">A1</span><div><button id="projectName" class="project-title" data-action="project"></button><div id="chapterCaption" class="project-caption">공간을 연결하고, 임무를 설계하세요.</div></div><span class="draft-badge">설계 초안</span></div><div class="project-summary" id="projectSummary"></div><button class="quiet" data-action="help">사용 가이드 <span>?</span></button></div>
   <main class="workspace">
     <aside class="library panel" id="libraryPanel" aria-label="타일과 기믹 라이브러리">
       <div class="panel-heading"><h2>라이브러리</h2><div><button class="icon-button" data-action="import-nbt" aria-label="Create 설계도 가져오기" title="Create 설계도 가져오기">＋</button><button class="icon-button panel-close" data-action="close-library" aria-label="라이브러리 닫기">×</button></div></div>
@@ -31,7 +31,8 @@
     <aside class="inspector panel" id="inspectorPanel" aria-label="선택 항목 속성"><div class="panel-heading"><h2>속성</h2><div><span class="tiny-label" id="inspectorLabel">STAGE</span><button class="icon-button panel-close" data-action="close-inspector" aria-label="속성 닫기">×</button></div></div><div id="inspectorContent" class="inspector-content"></div><div class="inspector-footer"><span class="live-dot"></span> 브라우저에 자동 저장 · 파일로 백업 가능</div></aside>
   </main>
   <footer class="app-footer"><span><i class="status-square"></i> EROSION SECTOR WORKSPACE</span><span id="bottomStatus">수평 연결 · 복층 타일 지원</span><button data-action="sample">예시 스테이지 열기</button></footer>
-  <input type="file" id="nbtInput" accept=".nbt" multiple hidden><input type="file" id="projectInput" accept=".json,.esproject" hidden>
+  <input type="file" id="nbtInput" accept=".nbt" multiple hidden><input type="file" id="projectInput" accept=".esfile" hidden>
+  <input type="file" id="tileFolderInput" webkitdirectory multiple hidden>
   <dialog id="dialog"><form id="dialogForm"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button type="button" class="icon-button" data-action="close-dialog" aria-label="닫기">×</button></div><div id="dialogBody" class="dialog-body"></div><div id="dialogActions" class="dialog-actions"></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./app.mjs"></script>
