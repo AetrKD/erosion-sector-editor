@@ -40,7 +40,7 @@ async function expand(bytes){
 function base64(bytes){let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);}
 function doorSettings(meta,security=null){
   const s=meta.door_settings||{},ticks=(n,f,max)=>Number.isInteger(n)?Math.max(1,Math.min(max,n)):f;
-  return {type:security===null?(s.type==='SECURITY'?'SECURITY':'NORMAL'):security?'SECURITY':'NORMAL',access:['HOLD','ALARM','TERMINAL'].includes(s.access)?s.access:security?'TERMINAL':'HOLD',
+  return {type:security===null?(s.type==='SECURITY'?'SECURITY':'NORMAL'):security?'SECURITY':'NORMAL',access:['HOLD','ALARM','TERMINAL'].includes(s.access)?s.access:'HOLD',
     break_rule:['NEVER','ALWAYS','UNLOCKED'].includes(s.break_rule)?s.break_rule:'NEVER',noise_passes:!!s.noise_passes,light_passes:!!s.light_passes,
     hold_ticks:security===true?20:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
 }

@@ -16,7 +16,7 @@ function fixture(size=[16,8,16],marker=false,options={}){
   if(options.modern){
     for(const [key,value] of [['MarkerVersion',options.drive?2:1],['Width',6],['Height',4]]){byte(3);str(key);int(value);}
     byte(1);str('Required');byte(1);byte(10);str('door_settings');
-    for(const [key,value] of [['type','SECURITY'],['access','TERMINAL'],['break_rule','UNLOCKED'],['terminal_command','UNLOCK LAB']]){byte(8);str(key);str(value);}
+    for(const [key,value] of [['type','SECURITY'],['access',options.access||'TERMINAL'],['break_rule','UNLOCKED'],['terminal_command','UNLOCK LAB']]){byte(8);str(key);str(value);}
     byte(1);str('noise_passes');byte(1);byte(1);str('light_passes');byte(0);byte(0);
   }
   byte(0);byte(0);
@@ -59,4 +59,12 @@ test('6x4 corner markers import their center, floor and independent door traits 
   await assert.rejects(inspectStructure(fixture([16,8,16],true,{modern:true,facing:'west',pos:[0,1,14]})),/범위|외곽/);
   const mirrored=await inspectStructure(fixture([16,8,16],true,{modern:true,facing:'west',pos:[0,1,10],reversed:true}));
   assert.equal(mirrored.ports[0].z,8);
+});
+
+test('security connectors default to interaction only and preserve explicitly configured conditions',async()=>{
+  for(const access of [undefined,'HOLD','ALARM','TERMINAL']){
+    const tile=await inspectStructure(fixture([16,8,16],true,{modern:access!==undefined,drive:true,facing:'south',pos:[5,4,15],access}));
+    assert.equal(tile.ports[0].doorSettings.access,access??'HOLD');
+    assert.equal(tile.ports[0].doorSettings.hold_ticks,20);
+  }
 });
