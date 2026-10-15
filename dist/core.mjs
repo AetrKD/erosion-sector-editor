@@ -86,7 +86,7 @@ export function validate(project) {
   const used=new Set(project.placements.map(p=>p.tileId));
   for(const tile of project.tiles.filter(t=>used.has(t.id))) {
     if(!tile.asset) add('warning',`${tile.name}: 실제 Create 설계도를 연결해야 합니다.`,{kind:'library',id:tile.id});
-    else if(!tile.asset.markerCount) add('warning',`${tile.name}: GTBO 문 마커가 없습니다. 연결구는 수동 설정 상태입니다.`,{kind:'library',id:tile.id});
+    else if(!tile.asset.markerCount) add('warning',`${tile.name}: Erosion Sector 문 마커가 없습니다. 연결구는 수동 설정 상태입니다.`,{kind:'library',id:tile.id});
     for(const port of tile.ports) {const error=portError(tile,port);if(error) add('error',`${tile.name}: ${error}`,{kind:'library',id:tile.id});}
   }
   for(let i=0;i<project.placements.length;i++) {
@@ -180,7 +180,7 @@ export function readProject(input) {
   const fail=message=>{throw new Error(message);};
   const text=(value,max=160)=>typeof value==='string'&&value.length<=max;
   const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
-  if(!p||p.format!=='gtbo-project'||p.version!==1) fail('지원하는 GTBO 프로젝트 파일이 아닙니다.');
+  if(!p||p.format!=='gtbo-project'||p.version!==1) fail('지원하는 Erosion Sector 프로젝트 파일이 아닙니다.');
   if(!text(p.id)||!text(p.name)||!text(p.description,3000)) fail('프로젝트 이름 또는 설명이 올바르지 않습니다.');
   for(const [key,max] of [['tiles',200],['placements',1000],['gimmicks',3000],['links',5000],['rooms',1000],['zones',100]]) {
     if(!Array.isArray(p[key])||p[key].length>max) fail(`${key} 목록 크기가 올바르지 않습니다.`);

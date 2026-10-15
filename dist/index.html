@@ -2,12 +2,12 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#121a21"><meta name="description" content="GTBO 타일과 기믹을 조립하는 스테이지 에디터. Create 설계도를 불러오고 층별로 공간을 구성하세요.">
-  <title>GTBO · 스테이지 에디터</title><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css">
+  <meta name="theme-color" content="#121a21"><meta name="description" content="Erosion Sector 타일과 기믹을 조립하는 스테이지 에디터. Create 설계도를 불러오고 층별로 공간을 구성하세요.">
+  <title>Erosion Sector Editor</title><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="./" aria-label="GTBO 스테이지 에디터"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>GTBO</strong><span class="brand-divider"></span><span class="brand-sub">스테이지 에디터</span><span class="version">ALPHA 01</span></a>
+    <a class="brand" href="./" aria-label="Erosion Sector 스테이지 에디터"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>Erosion Sector</strong><span class="brand-divider"></span><span class="brand-sub">스테이지 에디터</span><span class="version">ALPHA 01</span></a>
     <nav class="header-actions" aria-label="프로젝트 작업">
       <span id="saveStatus" class="save-status" aria-live="polite">불러오는 중</span>
       <button data-action="new" class="quiet">새 프로젝트</button><button data-action="open" class="quiet">불러오기</button>
@@ -30,7 +30,7 @@
     </section>
     <aside class="inspector panel" id="inspectorPanel" aria-label="선택 항목 속성"><div class="panel-heading"><h2>속성</h2><div><span class="tiny-label" id="inspectorLabel">STAGE</span><button class="icon-button panel-close" data-action="close-inspector" aria-label="속성 닫기">×</button></div></div><div id="inspectorContent" class="inspector-content"></div><div class="inspector-footer"><span class="live-dot"></span> 브라우저에 자동 저장 · 파일로 백업 가능</div></aside>
   </main>
-  <footer class="app-footer"><span><i class="status-square"></i> GTBO WORKSPACE</span><span id="bottomStatus">수평 연결 · 복층 타일 지원</span><button data-action="sample">예시 스테이지 열기</button></footer>
+  <footer class="app-footer"><span><i class="status-square"></i> EROSION SECTOR WORKSPACE</span><span id="bottomStatus">수평 연결 · 복층 타일 지원</span><button data-action="sample">예시 스테이지 열기</button></footer>
   <input type="file" id="nbtInput" accept=".nbt" multiple hidden><input type="file" id="projectInput" accept=".json,.gtboproject" hidden>
   <dialog id="dialog"><form id="dialogForm"><div class="dialog-heading"><h2 id="dialogTitle"></h2><button type="button" class="icon-button" data-action="close-dialog" aria-label="닫기">×</button></div><div id="dialogBody" class="dialog-body"></div><div id="dialogActions" class="dialog-actions"></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

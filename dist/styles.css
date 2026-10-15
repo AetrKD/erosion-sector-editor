@@ -7,3 +7,6 @@
 .panel-close{display:none}@media(max-width:950px){.inspector .panel-close{display:inline-flex;margin-left:8px}}@media(max-width:620px){.library .panel-close{display:inline-flex}}
 /* Orbit controls stay separate from tile rotation and never change stage data. */
 .iso-controls{position:absolute;top:63px;right:15px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:5px;background:#18232eea;border:1px solid #3c4f5a;border-radius:6px}.iso-controls[hidden],.camera-fallback[hidden]{display:none}.iso-controls>div{display:flex;gap:2px}.iso-controls button{min-width:32px;min-height:32px;font-size:19px;border-radius:4px}.iso-controls>span{font-size:9px;color:#a8bfba;padding:0 3px 3px}.camera-fallback{position:absolute;top:44px;left:15px;max-width:65%;color:#dfbd93;font-size:9px;pointer-events:none}#map[data-view=iso]{cursor:grab}#map[data-view=iso]:active{cursor:grabbing}#northArrow{transform-origin:center;line-height:24px}#map{touch-action:none}
+
+/* Full project name remains readable on narrow screens. */
+.brand>strong{font-size:clamp(14px,1.4vw,20px);letter-spacing:.02em}
