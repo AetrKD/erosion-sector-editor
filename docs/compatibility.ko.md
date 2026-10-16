@@ -10,6 +10,7 @@
 | CarryOn | NeoForge 1.21.1 / 2.2.6.13 | `CarryOnDataManager`, `PickupHandler.tryPickUpBlock`, `PlacementHandler.tryPlaceBlock`, `NeoForgePlatformHelper.setCarryData` |
 | Iris | NeoForge 1.21.1 / 1.8.14-beta.1 | `IrisApi`, `CapturedRenderingState`의 gbuffer 행렬, `HandRenderer.DEPTH`, `IrisRenderingPipeline.finalizeLevelRendering/finalizeGameRendering`, `RenderTargets` |
 | Sodium | NeoForge 1.21.1 / 0.8.13 | ES가 Sodium 내부 메서드를 호출하지 않음. 모델은 NeoForge의 `ModelData`, 렌더 레이어별 `BakedModel.getQuads` 경로로 조회 |
+| Create | NeoForge 1.21.1 / 6.0.10 | `MetalLadderBlock.skipRendering`, `AllBlocks`의 안산암·황동·구리 사다리, `create:block/ladder` 모델과 각 재질 텍스처 |
 
 TaCZ의 총기 데이터·예비탄은 실제 원본 로더와 재장전 경로에 연결합니다. 총구 화염은 `GunFireEvent`의 논리 측을 확인하고 실제 디스플레이와 소음기 데이터를 조회합니다. 상호작용 키의 등록 이름 `key.tacz.interact.desc`와 안내 레이어 `tacz:tac_interact_key_overlay`도 설치 JAR에서 대조했습니다. 장착 외형은 실제 TaCZ 렌더러를 사용하며, 주·보조 슬롯 변경과 팀원 장비 동기화만 ES에서 처리합니다. TaCZ 선택 의존성 범위는 `[1.1.8-hotfix-r7,1.1.9)`입니다.
 
@@ -28,6 +29,16 @@ ES는 일반 불투명 꽉 찬 블록의 빠른 경로를 유지하면서, 부�
 일반 축에 정렬된 불투명·컷아웃 모델을 대상으로 합니다. 기울어진 면, 반투명 재질, 별도 블록 엔티티 렌더러, 지나치게 복잡한 모델은 기존 충돌 형태로 돌아갑니다. HD 텍스처는 면당 각 축 최대 64표본이며 애니메이션의 불투명 부분은 프레임들의 합집합으로 근사합니다. 유한한 그림자 해상도 때문에 먼 거리의 가는 디테일은 여전히 생략되거나 부드럽게 보일 수 있습니다. 서버의 몹 노출 판정과 플레이어 충돌은 변경하지 않습니다.
 
 ES 문의 이동 형태는 기존 전용 광학 처리로 유지합니다. 사다리·엔드 막대를 위한 별도 가짜 블록이나 뒤쪽 그림자 판을 월드에 생성하지 않습니다.
+
+## 0.4.16 Create 금속 사다리
+
+Create의 안산암·황동·구리 사다리는 고리 부분이 모델 좌표 18/16까지 뻗습니다. 0.4.15는 모델 좌표를 한 칸 내부로 제한하면서 이 고리를 발견하면 전체 모델을 제외했고, 결국 빈틈 없는 충돌 판으로 되돌아갔습니다.
+
+범위 검사를 인접 칸까지 허용하도록 수정했습니다. 사다리 계열은 모델이 실제로 차지하는 인접 공기 칸에서도 튀어나온 부분을 검사하며, 대각선으로 걸친 고리도 포함합니다. 사다리가 없는 구간은 청크 섹션의 블록 목록으로 빠르게 제외하고, 같은 프레임의 결과를 공유합니다. 모델 캐시는 주변 블록에 따른 면 표시 여부도 구분합니다. 위에 사다리가 있으면 아래 사다리의 고리를 숨기는 Create 원본 규칙을 `Block.shouldRenderFace` 경로로 따르므로, 보이지 않는 고리의 그림자를 만들지 않습니다.
+
+Create 원본 JAR와 포함된 Flywheel·Ponder·Registrate를 사용한 실제 클라이언트에서 금속 사다리 3종×4방향의 투명 128픽셀/불투명 128픽셀을 확인했습니다. 위쪽·뒤쪽·대각선 칸의 고리 차폐, 고리 사이의 빈 공간, 위아래 연결 시 고리 숨김과 캐시 재사용도 검사했습니다. Iris·Sodium·Complementary Reimagined r5.9.3을 함께 켠 환경에서도 통과했습니다. 기존 엔드 막대·바닐라 사다리 검사를 함께 유지합니다.
+
+자동 클라이언트 검사 창은 기본적으로 숨기며, 검사 클래스와 창 제어 코드는 배포 JAR에서 제외합니다. 그래픽 검사를 생략하는 방식은 아닙니다. 다른 모드 파일과 사용자 설정은 수정하지 않습니다.
 
 ## 0.4.15 검증
 
