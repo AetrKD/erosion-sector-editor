@@ -12,7 +12,7 @@
 
 스테이지 설정에서 작성자, 챕터 이름, 자유 형식 난이도, 스테이지 이름과 설명을 편집합니다. 같은 챕터는 동일한 챕터 ID와 이름을 사용합니다. 새 항목이 없는 기존 파일도 빈 값으로 불러올 수 있습니다.
 
-.esfile은 ZIP 안의 manifest.json, stage.json, tiles.json, layout.json, logic.json 다섯 설정만 포함합니다. NBT는 외부 tile/타일셋/타일.nbt 경로와 SHA-256으로 참조하며 묶음에 넣지 않습니다. 스테이지 파일 자체가 프로젝트입니다.
+.esfile은 ZIP 안의 manifest.json, stage.json, tiles.json, layout.json, logic.json 다섯 설정만 포함합니다. NBT는 외부 es/assets/tile/타일셋/타일.nbt 경로와 SHA-256으로 참조하며 묶음에 넣지 않습니다. 스테이지 파일 자체가 프로젝트입니다.
 
 ## 로컬 실행
 

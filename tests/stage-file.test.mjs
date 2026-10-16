@@ -14,6 +14,7 @@ test('one ZIP stage is both editable project and stage, and contains only config
   p.placements[0].x=-17/16;p.placements[0].z=19/16;
   tile.ports[0].doorSettings.access='ALARM';
   const bytes=packStage(p),files=unzipSync(bytes);
+  assert.equal(JSON.parse(strFromU8(files['manifest.json'])).tileRoot,'assets/tile');
   assert.deepEqual([...bytes.subarray(0,4)],[80,75,3,4]);
   assert.deepEqual(Object.keys(files).sort(),['layout.json','logic.json','manifest.json','stage.json','tiles.json']);
   const metadata=JSON.parse(strFromU8(files['stage.json']));assert.equal(metadata.author,'제작 팀');assert.equal(metadata.difficulty,'매우 어려움');
@@ -61,6 +62,17 @@ test('a set named tile is preserved while an optional workspace root is stripped
   const direct=await loadTileFolder(p,[file('tile/복도.nbt',bytes)]);assert.equal(direct.project.tiles.at(-1).asset.reference,'tile/복도.nbt');
   const wrapped=file('연구소/복도.nbt',bytes);wrapped.webkitRelativePath='ErosionSector/tile/연구소/복도.nbt';
   const workspace=await loadTileFolder(p,[wrapped]);assert.equal(workspace.project.tiles.at(-1).asset.reference,'연구소/복도.nbt');
+});
+
+test('es and assets folder selections resolve the same external tile path',async()=>{
+  const bytes=doorFixture(),p=demoProject();
+  for(const path of ['es/assets/tile/연구소/복도.nbt','내작업/assets/tile/연구소/복도.nbt','assets/tile/연구소/복도.nbt','tile/연구소/복도.nbt']){
+    const selected=file('연구소/복도.nbt',bytes);selected.webkitRelativePath=path;
+    const result=await loadTileFolder(p,[selected]);assert.equal(result.project.tiles.at(-1).asset.reference,'연구소/복도.nbt');
+  }
+  const unrelated=file('other.nbt',bytes);unrelated.webkitRelativePath='es/assets/objects/other.nbt';
+  const selected=file('연구소/복도.nbt',bytes);selected.webkitRelativePath='es/assets/tile/연구소/복도.nbt';
+  const result=await loadTileFolder(p,[unrelated,selected]);assert.equal(result.added,1);
 });
 
 test('missing source remains editable and drops untrusted collision masks until reconnection',async()=>{

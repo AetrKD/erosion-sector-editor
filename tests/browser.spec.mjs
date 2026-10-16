@@ -86,7 +86,7 @@ test('NBT stays outside the stage archive and exact folder paths restore the sou
   const bytes=fixture();await page.locator('#nbtInput').setInputFiles({name:'copycat_test.nbt',mimeType:'application/octet-stream',buffer:bytes});
   await expect(page.locator('#inspectorContent')).toContainText('copycat_test.nbt');
   await expect(page.locator('#inspectorContent')).toContainText('포함 네임스페이스: create');
-  await page.getByLabel('타일 경로 · tile 폴더 기준',{exact:true}).fill('연구소/copycat_test.nbt');await page.getByLabel('타일 경로 · tile 폴더 기준',{exact:true}).press('Tab');
+  await page.getByLabel('타일 경로 · assets/tile 폴더 기준',{exact:true}).fill('연구소/copycat_test.nbt');await page.getByLabel('타일 경로 · assets/tile 폴더 기준',{exact:true}).press('Tab');
   const downloadPromise=page.waitForEvent('download');await page.locator('[data-action=save]').click();const download=await downloadPromise;
   const saved=await readFile(await download.path()),project=unpackStage(saved);
   expect(download.suggestedFilename()).toMatch(/\.esfile$/);expect(project.tiles.at(-1).asset.reference).toBe('연구소/copycat_test.nbt');
@@ -95,9 +95,9 @@ test('NBT stays outside the stage archive and exact folder paths restore the sou
   await expect(page.locator('#toast')).toContainText('스테이지를 불러왔습니다');
   expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).asset.bytes).toBeUndefined();
   await page.locator('[data-library-tile="'+project.tiles.at(-1).id+'"]').click();await expect(page.locator('#inspectorContent')).toContainText('원본 미연결');
-  const folder=path.resolve('artifacts/tile-fixture-'+crypto.randomUUID(),'tile');await mkdir(path.join(folder,'연구소'),{recursive:true});await mkdir(path.join(folder,'공장'),{recursive:true});
+  const workspace=path.resolve('artifacts/tile-fixture-'+crypto.randomUUID(),'es'),folder=path.join(workspace,'assets/tile');await mkdir(path.join(folder,'연구소'),{recursive:true});await mkdir(path.join(folder,'공장'),{recursive:true});
   await writeFile(path.join(folder,'연구소/copycat_test.nbt'),bytes);await writeFile(path.join(folder,'공장/copycat_test.nbt'),bytes);
-  await page.locator('#tileFolderInput').setInputFiles(folder);await expect(page.locator('#toast')).toContainText('1개 복원 · 1개 추가');
+  await page.locator('#tileFolderInput').setInputFiles(workspace);await expect(page.locator('#toast')).toContainText('1개 복원 · 1개 추가');
   let snapshot=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());expect(snapshot.tiles.find(t=>t.id===project.tiles.at(-1).id).asset.bytes).toBe(bytes.toString('base64'));
   expect(snapshot.tiles.at(-1).asset.reference).toBe('공장/copycat_test.nbt');
   await page.locator('#projectInput').setInputFiles({name:'again.esfile',mimeType:'application/zip',buffer:saved});await expect(page.locator('#toast')).toContainText('스테이지를 불러왔습니다');

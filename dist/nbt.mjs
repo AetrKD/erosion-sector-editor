@@ -144,8 +144,11 @@ export async function loadTileFolder(input,fileList){
   for(const file of fileList){
     if(!/\.nbt$/i.test(file.name))continue;
     const parts=(file.webkitRelativePath||'').split('/'),root=parts.shift();let path=parts.join('/');
-    if(root!=='tile'&&path.startsWith('tile/'))path=path.slice(5);
-    if(!tileReference(path))throw new Error('타일셋 폴더들을 포함하는 tile 폴더를 선택하세요. 타일 경로는 타일셋/타일이름.nbt 형태여야 합니다.');
+    if(root!=='tile'&&path.startsWith('assets/tile/'))path=path.slice(12);
+    else if(root==='es')continue;
+    else if(root==='assets'){if(!path.startsWith('tile/'))continue;path=path.slice(5);}
+    else if(root!=='tile'&&path.startsWith('tile/'))path=path.slice(5);
+    if(!tileReference(path))throw new Error('타일셋 폴더들을 포함하는 assets/tile 폴더를 선택하세요. 타일 경로는 타일셋/타일이름.nbt 형태여야 합니다.');
     if(files.has(path))throw new Error('중복된 타일 경로입니다: '+path);
     total+=file.size;if(file.size>MAX_FILE||total>MAX_EXPANDED||files.size>=200)throw new Error('타일 폴더는 NBT 파일당 24MB, 합계 64MB, 200개 이하로 연결하세요.');
     files.set(path,file);

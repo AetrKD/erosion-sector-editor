@@ -22,5 +22,5 @@ export async function runtimeFixture(){
   return {project,sources,bytes:packStage(project),exported:exportStage(project)};
 }
 if(process.argv[1]?.replaceAll('\\','/').endsWith('/runtime-fixture.mjs')){
-  const target=process.argv[2]||'artifacts/runtime-workspace',data=await runtimeFixture();await mkdir(target+'/stage',{recursive:true});for(const [ref,bytes] of data.sources){await mkdir(target+'/tile/'+ref.slice(0,ref.lastIndexOf('/')),{recursive:true});await writeFile(target+'/tile/'+ref,bytes);}await writeFile(target+'/stage/verification.esfile',data.bytes);console.log('Fixture written: '+target);
+  const target=process.argv[2]||'artifacts/runtime-workspace',data=await runtimeFixture();await mkdir(target+'/stage',{recursive:true});for(const [ref,bytes] of data.sources){await mkdir(target+'/assets/tile/'+ref.slice(0,ref.lastIndexOf('/')),{recursive:true});await writeFile(target+'/assets/tile/'+ref,bytes);}await writeFile(target+'/stage/verification.esfile',data.bytes);console.log('Fixture written: '+target);
 }
