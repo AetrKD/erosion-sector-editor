@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-17
 
+0.4.20의 왼손 잠금은 NeoForge 21.1.259 원본 소스에서 확인한 `LivingSwapItemsEvent.Hands` 취소로 서버의 기본 손 교환 패킷을 차단합니다. 상자 화면의 `ClickType.SWAP` 40번 경로는 ES의 기존 메뉴 처리에서 별도로 차단합니다. 기본 `InventoryMenu`의 왼손은 45번 메뉴 슬롯·40번 인벤토리 슬롯을 유지하며, `PlayerOffhandInvWrapper → InvWrapper → Inventory.canPlaceItem` 경로에도 ES 제한을 적용합니다. 크리에이티브의 정상 교환과 기존 TaCZ 2·3번 장비 거치는 유지합니다.
+
 | 모드 | 설치 버전 | 실제 코드에서 확인한 연결 지점 |
 | --- | --- | --- |
 | TaCZ | NeoForge 1.21.1 / 1.1.8-hotfix-r7 | `IGun`, `TimelessAPI`, `CommonGunIndex`, `CommonDataManager.apply`, `ModernKineticGunScriptAPI.consumeAmmoFromPlayer/hasAmmoToConsume`, `GunFireEvent`, `HumanoidOffhandRender.renderGunItem` |
