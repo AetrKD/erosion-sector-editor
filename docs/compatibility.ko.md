@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-17
 
+0.4.24의 ES 설정 진입점은 NeoForge 21.1.259 원본에서 확인한 `ScreenEvent.Init.Post`의 버튼 등록을 사용합니다. 메인·일시정지 메뉴의 설정 버튼 영역 안에서 두 버튼을 배치합니다. 설정 편집은 `ConfigurationSectionScreen`과 공개 `Context.section`을 사용하고 일반·개발자 항목의 입력 목록을 분리해 초기화 범위도 제한합니다. `devmod`는 설정 파일 전용이며 UI에는 편집·초기화 대상으로 노출하지 않습니다. 조작은 설치된 Minecraft의 `ControlsScreen`과 키 지정 화면으로 연결하고 TaCZ 원본 키 처리나 설정은 수정하지 않습니다. 한국어 실제 클라이언트에서 저장·초기화, 개발자 접근 차단·실행 중 해제와 GUI 배율 2·3의 버튼 배치를 검증했습니다.
+
 0.4.23의 `[lighting].enabled`는 ES의 자체 렌더러와 ES 총구 효과를 함께 제어하는 클라이언트 옵션입니다. 기존 Iris 입력 경로와 TaCZ 발사 이벤트 연동 API는 변경하지 않습니다. 기본 클라이언트 및 아래 TaCZ·Create·Iris·Sodium과 Complementary Reimagined r5.9.3 조합의 실제 클라이언트에서 실행 중 끄기·재활성화, GPU 자원 해제와 재생성, 개별 설정 보존을 검증했습니다. 시설 조명 블록의 월드 광원과 서버의 노출 판정은 유지합니다.
 
 0.4.20의 왼손 잠금은 NeoForge 21.1.259 원본 소스에서 확인한 `LivingSwapItemsEvent.Hands` 취소로 서버의 기본 손 교환 패킷을 차단합니다. 상자 화면의 `ClickType.SWAP` 40번 경로는 ES의 기존 메뉴 처리에서 별도로 차단합니다. 기본 `InventoryMenu`의 왼손은 45번 메뉴 슬롯·40번 인벤토리 슬롯을 유지하며, `PlayerOffhandInvWrapper → InvWrapper → Inventory.canPlaceItem` 경로에도 ES 제한을 적용합니다. 크리에이티브의 정상 교환과 기존 TaCZ 2·3번 장비 거치는 유지합니다.
