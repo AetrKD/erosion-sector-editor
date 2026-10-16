@@ -175,7 +175,7 @@ export function validate(project) {
 export function exportStage(project) {
   const network=connections(project),ready=runtimeIssues(project,validate(project)).length===0;
   return {format:'erosionsector-stage',version:2,status:ready?'ready':'draft',runtimeReady:ready,cellSize:CELL,tileRules:TILE_RULES,
-    stage:{id:project.id,name:project.name,description:project.description,chapter:clone(project.chapter),missionCode:project.missionCode,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers,missionMode:project.missionMode,objectives:clone(project.objectives||[])},
+    stage:{id:project.id,name:project.name,author:project.author,difficulty:project.difficulty,description:project.description,chapter:clone(project.chapter),missionCode:project.missionCode,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers,missionMode:project.missionMode,objectives:clone(project.objectives||[])},
     zones:clone(project.zones),rooms:clone(project.rooms),
     tiles:project.tiles.map(t=>({id:t.id,name:t.name,category:t.category,size:clone(t.size),ports:clone(t.ports),asset:t.asset?{name:t.asset.name,reference:t.asset.reference,sha256:t.asset.sha256,blockCount:t.asset.blockCount,paletteCount:t.asset.paletteCount,entityCount:t.asset.entityCount,markerCount:t.asset.markerCount,namespaces:clone(t.asset.namespaces),dataVersion:t.asset.dataVersion}:null})),
     placements:project.placements.map(p=>({...p,blockPosition:{x:p.x*16,y:p.y*8,z:p.z*16}})),
@@ -205,7 +205,7 @@ export function demoProject() {
     {id:'g6',type:'extraction',name:'복귀 집결 지점',placementId:'p1',position:{x:11,y:1,z:8},settings:{duration:10}}
   ];
   return normalizeAreaCodes({format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
-    description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',chapter:{id:'a',name:'관측 시설',description:''},missionCode:'A1',minPlayers:1,maxPlayers:4,
+    author:'Erosion Sector',difficulty:'보통',description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',chapter:{id:'a',name:'관측 시설',description:''},missionCode:'A1',minPlayers:1,maxPlayers:4,
     tiles,placements,gimmicks,missionMode:'extract',objectives:[],programs:[],links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
     zones:[{id:'z1',name:'진입 시설',color:'#78968d'},{id:'z2',name:'관측 연구동',color:'#748eae'}],
     rooms:[{id:'r1',code:'101',name:'진입실',zoneId:'z1',color:'#7ba392'},{id:'r2',code:'102',name:'진입 복도',zoneId:'z1',color:'#6c8992'},
@@ -214,7 +214,7 @@ export function demoProject() {
       {id:'r7',code:'204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]});
 }
 export function emptyProject() {
-  const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.tiles=[];p.placements=[];p.gimmicks=[];p.links=[];
+  const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.author='';p.difficulty='';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.tiles=[];p.placements=[];p.gimmicks=[];p.links=[];
   p.rooms=[{id:'r1',code:'101',name:'첫 번째 구역',zoneId:'z1',color:'#7ba392'}];p.zones=[p.zones[0]];p.missionMode='objectives';return p;
 }
 export function readProject(input) {
@@ -224,6 +224,8 @@ export function readProject(input) {
   const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
   if(!p||p.format!=='erosionsector-project'||p.version!==1) fail('지원하는 Erosion Sector 프로젝트 파일이 아닙니다.');
   if(!text(p.id)||!text(p.name)||!text(p.description,3000)) fail('프로젝트 이름 또는 설명이 올바르지 않습니다.');
+  if(p.author===undefined)p.author='';if(p.difficulty===undefined)p.difficulty='';
+  if(!text(p.author,160)||!text(p.difficulty,80))fail('작성자 또는 스테이지 난이도가 올바르지 않습니다.');
   p.chapter??={id:'',name:'',description:''};p.missionCode??='';
   if(!p.chapter||!text(p.chapter.id)||!text(p.chapter.name)||!text(p.chapter.description,3000)||!text(p.missionCode))fail('챕터 또는 미션 정보가 올바르지 않습니다.');
   for(const [key,max] of [['tiles',200],['placements',1000],['gimmicks',3000],['links',5000],['rooms',1000],['zones',100]]) {

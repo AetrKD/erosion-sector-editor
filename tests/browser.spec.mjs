@@ -107,9 +107,27 @@ test('NBT stays outside the stage archive and exact folder paths restore the sou
 });
 test('single stage save retains chapter and mission metadata and replaces separate project/export actions',async({page})=>{
   await page.locator('#projectName').click();await page.getByLabel('챕터 이름',{exact:true}).fill('침식 시설');await page.getByLabel('미션 코드',{exact:true}).fill('B2');await page.getByLabel('챕터 설명',{exact:true}).fill('두 번째 탐사');
+  await page.getByLabel('작성자',{exact:true}).fill('탐사 제작팀');await page.getByLabel('스테이지 난이도',{exact:true}).fill('튜토리얼');
+  await page.getByLabel('스테이지 이름',{exact:true}).fill('첫 탐사');await page.getByLabel('임무 설명',{exact:true}).fill('시설을 탐사하고 복귀하세요.');
   await page.locator('#dialog').getByRole('button',{name:'저장',exact:true}).click();
   const pending=page.waitForEvent('download');await page.locator('[data-action=save]').click();const download=await pending;
-  expect(download.suggestedFilename()).toMatch(/\.esfile$/);const stage=unpackStage(await readFile(await download.path()));expect(stage.chapter.name).toBe('침식 시설');expect(stage.chapter.description).toBe('두 번째 탐사');expect(stage.missionCode).toBe('B2');
+  const bytes=await readFile(await download.path());
+  expect(download.suggestedFilename()).toMatch(/\.esfile$/);const stage=unpackStage(bytes);expect(stage.chapter.name).toBe('침식 시설');expect(stage.chapter.description).toBe('두 번째 탐사');expect(stage.missionCode).toBe('B2');
+  expect(stage.author).toBe('탐사 제작팀');expect(stage.difficulty).toBe('튜토리얼');expect(stage.name).toBe('첫 탐사');expect(stage.description).toBe('시설을 탐사하고 복귀하세요.');
+  await page.locator('#projectInput').setInputFiles({name:'metadata.esfile',mimeType:'application/zip',buffer:bytes});
+  await expect(page.locator('#toast')).toContainText('스테이지를 불러왔습니다');
+  await expect(page.locator('.stage-metadata')).toContainText('탐사 제작팀');await expect(page.locator('.stage-metadata')).toContainText('튜토리얼');
+  await page.locator('#projectName').click();
+  for(const [label,value] of [['작성자','탐사 제작팀'],['챕터 이름','침식 시설'],['스테이지 난이도','튜토리얼'],['스테이지 이름','첫 탐사'],['임무 설명','시설을 탐사하고 복귀하세요.']])await expect(page.getByLabel(label,{exact:true})).toHaveValue(value);
+  await page.screenshot({path:'artifacts/stage-metadata.png'});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.getByLabel('작성자',{exact:true})).toBeVisible();
+  await page.screenshot({path:'artifacts/stage-metadata-mobile.png'});
+  await page.locator('#dialog').getByRole('button',{name:'저장',exact:true}).click();
+  await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);
+  await page.locator('[data-action=welcome-resume]').click();
+  const restored=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());expect(restored.author).toBe('탐사 제작팀');expect(restored.difficulty).toBe('튜토리얼');expect(restored.id).toBe(stage.id);
   expect(await page.locator('[data-action=export]').count()).toBe(0);
 });
 

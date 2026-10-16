@@ -10,19 +10,30 @@ const file=(path,bytes)=>({name:path.split('/').at(-1),webkitRelativePath:'tile/
 
 test('one ZIP stage is both editable project and stage, and contains only configuration JSON',async()=>{
   const p=demoProject(),tile=await inspectStructure(doorFixture({half:true}),'복도.nbt');tile.asset.reference='연구소/복도.nbt';p.tiles.push(tile);
-  p.chapter={id:'chapter-b',name:'침식 연구소',description:'격리 구역 탐사'};p.missionCode='B3';
+  p.author='제작 팀';p.difficulty='매우 어려움';p.chapter={id:'chapter-b',name:'침식 연구소',description:'격리 구역 탐사'};p.missionCode='B3';
   p.placements[0].x=-17/16;p.placements[0].z=19/16;
   tile.ports[0].doorSettings.access='ALARM';
   const bytes=packStage(p),files=unzipSync(bytes);
   assert.deepEqual([...bytes.subarray(0,4)],[80,75,3,4]);
   assert.deepEqual(Object.keys(files).sort(),['layout.json','logic.json','manifest.json','stage.json','tiles.json']);
+  const metadata=JSON.parse(strFromU8(files['stage.json']));assert.equal(metadata.author,'제작 팀');assert.equal(metadata.difficulty,'매우 어려움');
   const savedTiles=JSON.parse(strFromU8(files['tiles.json']));assert.equal(savedTiles.at(-1).asset.reference,'연구소/복도.nbt');
   assert.ok(!Object.hasOwn(savedTiles.at(-1).asset,'bytes'));assert.ok(!Object.hasOwn(savedTiles.at(-1).asset,'occupancy'));
   assert.ok(!Object.values(files).some(b=>strFromU8(b).includes(tile.asset.bytes)));
   const restored=await restoreProject(unpackStage(bytes));
-  for(const key of ['chapter','missionCode','name','description','placements','rooms','zones','gimmicks','links'])assert.deepEqual(restored[key],p[key]);
+  for(const key of ['author','difficulty','chapter','missionCode','name','description','placements','rooms','zones','gimmicks','links'])assert.deepEqual(restored[key],p[key]);
   assert.deepEqual(restored.tiles.at(-1).ports,tile.ports);assert.equal(restored.tiles.at(-1).asset.bytes,undefined);
   assert.equal(unpackStage(packStage(restored)).tiles.at(-1).asset.reference,'연구소/복도.nbt');
+});
+
+test('legacy stages default missing metadata while malformed author or difficulty is rejected',()=>{
+  const files=unzipSync(packStage(demoProject())),stage=JSON.parse(strFromU8(files['stage.json']));
+  delete stage.author;delete stage.difficulty;files['stage.json']=strToU8(JSON.stringify(stage));
+  const restored=unpackStage(zipSync(files));assert.equal(restored.author,'');assert.equal(restored.difficulty,'');
+  assert.equal(unpackStage(packStage(restored)).author,'');
+  for(const [key,value] of [['author',42],['author','x'.repeat(161)],['difficulty',null],['difficulty','x'.repeat(81)]]){
+    const invalid=demoProject();invalid[key]=value;assert.throws(()=>readProject(invalid),/작성자 또는 스테이지 난이도/);
+  }
 });
 
 test('relative paths require a tile set, reject traversal and distinguish identical basenames',()=>{

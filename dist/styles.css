@@ -10,3 +10,4 @@
 
 /* Full project name remains readable on narrow screens. */
 .brand>strong{font-size:clamp(14px,1.4vw,20px);letter-spacing:.02em}
+.stage-metadata{margin:14px 0;display:grid;gap:7px;font-size:11px}.stage-metadata>div{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px}.stage-metadata dt{color:var(--muted)}.stage-metadata dd{margin:0;overflow-wrap:anywhere}
