@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-17
 
+0.4.23의 `[lighting].enabled`는 ES의 자체 렌더러와 ES 총구 효과를 함께 제어하는 클라이언트 옵션입니다. 기존 Iris 입력 경로와 TaCZ 발사 이벤트 연동 API는 변경하지 않습니다. 기본 클라이언트 및 아래 TaCZ·Create·Iris·Sodium과 Complementary Reimagined r5.9.3 조합의 실제 클라이언트에서 실행 중 끄기·재활성화, GPU 자원 해제와 재생성, 개별 설정 보존을 검증했습니다. 시설 조명 블록의 월드 광원과 서버의 노출 판정은 유지합니다.
+
 0.4.20의 왼손 잠금은 NeoForge 21.1.259 원본 소스에서 확인한 `LivingSwapItemsEvent.Hands` 취소로 서버의 기본 손 교환 패킷을 차단합니다. 상자 화면의 `ClickType.SWAP` 40번 경로는 ES의 기존 메뉴 처리에서 별도로 차단합니다. 기본 `InventoryMenu`의 왼손은 45번 메뉴 슬롯·40번 인벤토리 슬롯을 유지하며, `PlayerOffhandInvWrapper → InvWrapper → Inventory.canPlaceItem` 경로에도 ES 제한을 적용합니다. 크리에이티브의 정상 교환과 기존 TaCZ 2·3번 장비 거치는 유지합니다.
 
 | 모드 | 설치 버전 | 실제 코드에서 확인한 연결 지점 |
