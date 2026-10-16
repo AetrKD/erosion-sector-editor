@@ -45,12 +45,19 @@ function doorSettings(meta,security=null){
     break_rule:['NEVER','ALWAYS','UNLOCKED'].includes(s.break_rule)?s.break_rule:'NEVER',noise_passes:!!s.noise_passes,light_passes:!!s.light_passes,
     hold_ticks:security===true?20:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
 }
-export async function inspectStructure(input,name='tile.nbt'){
+export async function readStructure(input){
   const bytes=input instanceof Uint8Array?input:new Uint8Array(input);
   if(bytes.length>MAX_FILE)throw new Error('설계도 파일은 24MB 이하로 가져오세요.');
   const expanded=await expand(bytes);
   if(expanded.length>MAX_EXPANDED)throw new Error('설계도 데이터가 너무 큽니다.');
   const root=parseNbt(expanded);
+  const size=root.size,palette=root.palette||root.palettes?.[0];
+  if(!Array.isArray(size)||size.length!==3||!size.every(n=>Number.isInteger(n)&&n>0&&n<=256)||!Array.isArray(palette)||!Array.isArray(root.blocks)||root.blocks.length>250000)throw new Error('미리보기는 각 축 256블록, 저장 블록 25만 개 이하인 구조물 NBT를 지원합니다.');
+  const seen=new Set();for(const b of root.blocks){if(!Array.isArray(b.pos)||b.pos.length!==3||b.pos.some((n,i)=>!Number.isInteger(n)||n<0||n>=size[i])||!Number.isInteger(b.state)||!palette[b.state]||typeof palette[b.state].Name!=='string')throw new Error('설계도 블록 정보가 올바르지 않습니다.');const key=b.pos.join(',');if(seen.has(key))throw new Error('중복된 블록 좌표입니다.');seen.add(key);}
+  return root;
+}
+export async function inspectStructure(input,name='tile.nbt'){
+  const bytes=input instanceof Uint8Array?input:new Uint8Array(input),root=await readStructure(bytes);
   const dimensions=root.size;
   if(!Array.isArray(dimensions)||dimensions.length!==3)throw new Error('Create/바닐라 구조물 NBT만 지원합니다. .schem은 먼저 구조물 .nbt로 변환하세요.');
   const [x,y,z]=dimensions;

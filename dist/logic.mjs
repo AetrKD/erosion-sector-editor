@@ -13,9 +13,16 @@ export const BLOCKS=Object.freeze({
   'when.alarm':definition('trigger','경보가 끝나면',{gimmickId:target('경보','alarm')}),
   'when.door':definition('trigger','문의 상태가 바뀌면',{doorId:target('문 · 이쪽 면','door'),state:choice('상태','open',[['open','열림'],['closed','닫힘']])}),
   'when.signal':definition('trigger','신호를 받으면',{signal:text('신호 이름','전력_복구',80)}),
+  'when.command':definition('trigger','터미널에 명령어를 입력하면',{gimmickId:target('시설 터미널','terminal'),command:text('명령어','RESTORE_POWER',120)}),
+  'when.pickup':definition('trigger','화물을 들어 올리면',{gimmickId:target('화물 상자','cargo')}),
+  'when.collect':definition('trigger','ID 키카드를 획득하면',{gimmickId:target('ID 키카드','keycard')}),
+  'when.doorAttempt':definition('trigger','보안 문을 열려고 하면',{doorId:target('문 · 이쪽 면','door')}),
+  'when.objective':definition('trigger','임무 목표가 완료되면',{objectiveId:target('임무 목표','objective')}),
   'when.all':definition('trigger','아래 이벤트가 모두 발생하면',{}, {items:'trigger'}),
   'when.any':definition('trigger','아래 이벤트 중 하나가 발생하면',{}, {items:'trigger'}),
   'check.players':definition('condition','구역에 플레이어가 있다',{roomId:target('구역','room')}),
+  'check.objective':definition('condition','임무 목표가 완료되었다',{objectiveId:target('임무 목표','objective')}),
+  'check.alarm':definition('condition','알람 상태를 확인한다',{gimmickId:target('알람','alarm'),state:choice('알람 상태','active',[['active','진행 중'],['complete','종료됨']])}),
   'check.complete':definition('condition','기믹 목표가 완료되었다',{gimmickId:target('기믹','gimmick')}),
   'check.door':definition('condition','문의 상태가 같다',{doorId:target('문 · 이쪽 면','door'),state:choice('상태','open',[['open','열림'],['closed','닫힘'],['locked','잠김']])}),
   'check.variable':definition('condition','변수 값을 비교한다',{variable:text('변수 이름','전력',80),operator:choice('비교','eq',[['eq','='],['ne','≠'],['gt','>'],['gte','≥'],['lt','<'],['lte','≤']]),value:number('비교 값',1,-1000000,1000000)}),
@@ -30,6 +37,7 @@ export const BLOCKS=Object.freeze({
   'do.door':definition('action','문 제어',{doorId:target('문 · 이쪽 면','door'),action:choice('문 동작','unlock',[['open','열기'],['close','닫기'],['unlock','이쪽 면 잠금 해제'],['lock','이쪽 면 잠그기']])}),
   'do.gimmick':definition('action','기믹 제어',{gimmickId:target('대상 기믹','gimmick'),action:choice('기믹 동작','activate',[['activate','활성화'],['deactivate','비활성화'],['complete','목표 완료 처리']])}),
   'do.alarm':definition('action','경보 시작',{gimmickId:target('경보 장치','alarm')}),
+  'do.objective':definition('action','임무 목표 완료 처리',{objectiveId:target('임무 목표','objective')}),
   'do.wave':definition('action','적 출현 시작',{gimmickId:target('적 출현 지점','wave')}),
   'do.message':definition('action','안내 문구 표시',{message:text('표시할 문구','전력이 차단되었습니다.',500),seconds:number('표시 시간 · 초',5,.1,60)}),
   'do.signal':definition('action','신호 보내기',{signal:text('신호 이름','전력_복구',80)}),
@@ -40,6 +48,7 @@ export const CATEGORY_LABELS={trigger:'발생',condition:'조건',control:'흐�
 const id=prefix=>prefix+'_'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
 export function accepts(slot,type){const category=BLOCKS[type]?.category;return slot==='statement'?category==='action'||category==='control':slot===category;}
 export function targetOptions(project,kind){
+  if(kind==='objective')return (project.objectives||[]).map(o=>[o.id,o.name]);
   if(kind==='room')return project.rooms.map(r=>[r.id,`${r.code}구역 · ${r.name}`]);
   if(kind==='placement')return project.placements.map(p=>[p.id,`${project.rooms.find(r=>r.id===p.roomId)?.code||'?'} / ${p.areaCode||'?'}구역 (${project.tiles.find(t=>t.id===p.tileId)?.name||'타일'})`]);
   if(kind==='door')return project.placements.flatMap(p=>(project.tiles.find(t=>t.id===p.tileId)?.ports||[]).map(port=>[p.id+':'+port.id,`${project.rooms.find(r=>r.id===p.roomId)?.code||'?'} / ${p.areaCode||'?'} · ${port.name}`]));
@@ -47,7 +56,7 @@ export function targetOptions(project,kind){
 }
 export function createBlock(type,project){
   const def=BLOCKS[type];if(!def)throw new Error('지원하지 않는 이벤트 블록입니다.');
-  const args=Object.fromEntries(Object.entries(def.fields).map(([key,f])=>[key,['room','placement','gimmick','alarm','wave','door'].includes(f.kind)?targetOptions(project,f.kind)[0]?.[0]||'':f.value]));
+    const args=Object.fromEntries(Object.entries(def.fields).map(([key,f])=>[key,!['number','text','choice'].includes(f.kind)?targetOptions(project,f.kind)[0]?.[0]||'':f.value]));
   return {id:id('block'),type,args,...Object.fromEntries(Object.keys(def.slots).map(k=>[k,[]]))};
 }
 export function createProgram(project){return {id:id('event'),name:'새 이벤트',enabled:true,once:true,trigger:createBlock('when.start',project),actions:[]};}
@@ -106,7 +115,7 @@ export function programIssues(project){
     walkBlocks(p,b=>{
       const def=BLOCKS[b.type];if(!def)return;
       for(const [key,f] of Object.entries(def.fields)){
-        if(['room','placement','gimmick','alarm','wave','door'].includes(f.kind)&&!exists(f.kind,b.args[key]))add(`${def.label}의 ${f.label} 대상이 없습니다.`);
+        if(!['number','text','choice'].includes(f.kind)&&!exists(f.kind,b.args[key]))add(`${def.label}의 ${f.label} 대상이 없습니다.`);
         if(f.kind==='text'&&!b.args[key].trim())add(`${def.label}의 ${f.label}을 입력하세요.`);
       }
       if(['when.all','when.any','check.all','check.any','check.not'].includes(b.type)&&!b.items.length)add(`${def.label} 안에 블록을 넣으세요.`);

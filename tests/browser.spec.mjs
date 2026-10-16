@@ -5,7 +5,7 @@ import {packStage,unpackStage} from '../dist/stage-file.mjs';
 import {doorFixture} from './fixtures.mjs';
 function fixture(){return doorFixture({compressed:true});}
 
-test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);});
+test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);await page.locator('[data-action="welcome-sample"]').click();});
 
 test('plan connection cache refreshes after edits and undo without recalculating during view-only redraws',async({page})=>{
   const result=await page.evaluate(async()=>{
@@ -102,7 +102,7 @@ test('NBT stays outside the stage archive and exact folder paths restore the sou
   expect(snapshot.tiles.at(-1).asset.reference).toBe('공장/copycat_test.nbt');
   await page.locator('#projectInput').setInputFiles({name:'again.esfile',mimeType:'application/zip',buffer:saved});await expect(page.locator('#toast')).toContainText('스테이지를 불러왔습니다');
   snapshot=await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot());expect(snapshot.tiles.find(t=>t.id===project.tiles.at(-1).id).asset.bytes).toBe(bytes.toString('base64'));
-  await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);
+  await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);await page.locator('[data-action=welcome-resume]').click();await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');
   expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.find(t=>t.id===project.tiles.at(-1).id).asset.bytes).toBe(bytes.toString('base64'));
 });
 test('single stage save retains chapter and mission metadata and replaces separate project/export actions',async({page})=>{
@@ -232,7 +232,7 @@ test('clicking stacked geometry selects the visible upper tile',async({page})=>{
 
 test('disabled WebGL shows an explicit fallback and keeps orbit controls usable',async({page})=>{
   await page.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type==='webgl'?null:original.call(this,type,...args);};});
-  await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);
+  await page.reload();await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);await page.locator('[data-action=welcome-sample]').click();
   await page.locator('[data-view=iso]').click();
   await expect(page.locator('#map')).toHaveAttribute('data-renderer','fallback');await expect(page.locator('#cameraFallback')).toBeVisible();
   await page.getByRole('button',{name:'시점 오른쪽 회전',exact:true}).click();expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.summary())).camera.azimuth).toBe(0);

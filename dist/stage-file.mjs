@@ -10,7 +10,7 @@ export function packStage(input){
   const project=readProject(input),stage=exportStage(project);
   for(const tile of stage.tiles)if(tile.asset&&!tileReference(tile.asset.reference))
     throw new Error(`${tile.name}: tile 폴더 기준 경로를 지정하세요. 예: 연구소/복도.nbt`);
-  const manifest={format:stage.format,version:2,status:'draft',runtimeReady:false,tileRoot:'tile',cellSize:CELL,tileRules:TILE_RULES};
+  const manifest={format:stage.format,version:2,status:stage.status,runtimeReady:stage.runtimeReady,tileRoot:'tile',cellSize:CELL,tileRules:TILE_RULES};
   const layout={placements:stage.placements.map(({x,y,z,...p})=>p),rooms:stage.rooms,zones:stage.zones,connections:stage.connections};
   const values=[manifest,stage.stage,stage.tiles,layout,{gimmicks:stage.gimmicks,links:stage.links,blockFormat:1,programs:stage.programs}];
   const files=Object.fromEntries(NAMES.map((name,i)=>[name,encoder.encode(JSON.stringify(values[i],null,2))]));

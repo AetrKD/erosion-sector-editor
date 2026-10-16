@@ -7,7 +7,7 @@ async function dragBlock(page,source,target){
   await page.mouse.move(a.x+12,a.y+12);await page.mouse.down();await page.mouse.move(a.x+30,a.y+28,{steps:5});
   await target.scrollIntoViewIfNeeded();const b=await target.boundingBox();await page.mouse.move(b.x+30,b.y+15,{steps:10});await page.mouse.move(b.x+31,b.y+16);await page.mouse.up();
 }
-test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);});
+test.beforeEach(async({page})=>{await page.goto('/');await page.waitForFunction(()=>!!globalThis.EROSIONSECTOR_EDITOR);await page.locator('[data-action="welcome-sample"]').click();});
 
 test('directory tree selects multi-floor instances and keeps sibling codes when regrouping, renaming and undoing',async({page})=>{
   await page.locator('[data-tab=rooms]').click();
