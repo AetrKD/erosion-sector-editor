@@ -6,10 +6,10 @@ const types = {'.html':'text/html; charset=utf-8','.mjs':'text/javascript; chars
 const server = http.createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    if(pathname==='/api/records'){
+    if(pathname==='/api/records'||pathname==='/api/clears'){
       let size=0;const chunks=[];for await(const chunk of request){size+=chunk.length;if(size>16384){response.writeHead(413);response.end('Record too large');return;}chunks.push(chunk);}request.body=Buffer.concat(chunks).toString('utf8');
       response.status=function(code){this.statusCode=code;return this;};response.json=function(value){this.setHeader('Content-Type','application/json');this.end(JSON.stringify(value));return this;};
-      const {default:handler}=await import('./api/records.js');await handler(request,response);return;
+      const {default:handler}=await import('.'+pathname+'.js');await handler(request,response);return;
     }
     const file = path.resolve(root, '.' + (pathname.endsWith('/') ? pathname+'index.html' : pathname));
     if (!file.startsWith(root + path.sep)) throw new Error('Invalid path');

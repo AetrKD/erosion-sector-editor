@@ -5,7 +5,8 @@
   "installCommand": "npm ci --omit=dev",
   "regions": ["hnd1"],
   "functions": {
-    "api/records.js": {"maxDuration": 15, "includeFiles": "dist/releases/**"}
+    "api/clears.js": {"maxDuration": 15},
+    "api/records.js": {"maxDuration": 5}
   },
   "headers": [
     {"source":"/releases/:path*","headers":[{"key":"Cache-Control","value":"public, max-age=0, must-revalidate"}]}
