@@ -15,8 +15,8 @@
 - manifest.json: format=erosionsector-stage, version=2, tileRoot=tile, 좌표 단위와 타일 규칙. 게임 실행기는 아직 미구현이므로 status=draft, runtimeReady=false.
 - stage.json: 스테이지 ID·이름·임무 설명, chapter의 ID·이름·설명, missionCode, 최소·최대 인원.
 - tiles.json: 편집에 등록된 모든 타일의 ID·이름·분류·크기·문 연결구·양면별 조건. asset에는 reference(예: 연구소/복도.nbt), 이름·SHA-256·원본 통계만 저장합니다. 실제 NBT 없이 만든 설계용 타일은 asset=null입니다.
-- layout.json: 타일 배치·회전·소속 방, 방·구역, 문 연결. blockPosition은 실제 정수 블록 좌표이며 Y는 8의 배수입니다.
-- logic.json: 기믹 위치·설정과 이벤트 연결.
+- layout.json: 타일 배치·회전·소속 구역, 숫자 구역(rooms)·시설 묶음(zones), 문 연결. 각 배치의 areaCode는 a/b/c처럼 구역 안에서 구분하는 표시 이름입니다. 실제 참조는 placement.id이며 이름 변경·이동으로 바뀌지 않습니다. blockPosition은 실제 정수 블록 좌표이며 Y는 8의 배수입니다.
+- logic.json: 기믹 위치·설정(gimmicks), 기존 간단 연결(links), blockFormat=1과 블록 이벤트(programs). 이벤트의 발생·조건·분기·반복과 실행 블록을 모두 저장합니다. 자세한 내용은 [블록 이벤트](event-blocks.ko.md)를 참고하세요.
 
 스테이지 외부에 stage.json을 별도로 두지 않습니다. .esproject를 따로 만들거나 관리하지 않습니다. 이전 파일 형식의 이전 처리는 제공하지 않습니다.
 

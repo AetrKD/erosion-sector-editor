@@ -1,4 +1,6 @@
 import {occupancy,conflictingBlock} from './occupancy.mjs';
+import {normalizeAreaCodes} from './hierarchy.mjs';
+import {assertPrograms,programIssues} from './logic.mjs';
 // Stored X/Z coordinates retain the 16-block view unit; placement snaps to 1/16 of it.
 export const CELL = Object.freeze({x:16,y:8,z:16});
 export const TILE_RULES=Object.freeze({horizontalStep:1,heightStep:8,minDoors:1,placementPolicy:'non-air-only'});
@@ -162,6 +164,7 @@ export function validate(project) {
     const unreachable=project.placements.filter(p=>!reachable.has(p.id));
     if(unreachable.length) add('warning',`시작점에서 문 연결로 도달할 수 없는 타일이 ${unreachable.length}개입니다.`,{kind:'placement',id:unreachable[0].id});
   }
+  issues.push(...programIssues(project));
   add('info','현재 파일은 스테이지 설계용입니다. Minecraft 실행 연동과 기믹 동작은 아직 연결되지 않았습니다.');
   return issues;
 }
@@ -173,7 +176,7 @@ export function exportStage(project) {
     tiles:project.tiles.map(t=>({id:t.id,name:t.name,category:t.category,size:clone(t.size),ports:clone(t.ports),asset:t.asset?{name:t.asset.name,reference:t.asset.reference,sha256:t.asset.sha256,blockCount:t.asset.blockCount,paletteCount:t.asset.paletteCount,entityCount:t.asset.entityCount,markerCount:t.asset.markerCount,namespaces:clone(t.asset.namespaces),dataVersion:t.asset.dataVersion}:null})),
     placements:project.placements.map(p=>({...p,blockPosition:{x:p.x*16,y:p.y*8,z:p.z*16}})),
     connections:network.pairs.map(({a,b})=>({from:{placementId:a.placementId,portId:a.id},to:{placementId:b.placementId,portId:b.id}})),
-    gimmicks:clone(project.gimmicks),links:clone(project.links),validation:validate(project)};
+    gimmicks:clone(project.gimmicks),links:clone(project.links),programs:clone(project.programs||[]),validation:validate(project)};
 }
 const port=(id,x,y,z,facing,required=true)=>({id,name:id,x,y,z,facing,width:2,height:3,required});
 export function demoProject() {
@@ -197,18 +200,18 @@ export function demoProject() {
     {id:'g5',type:'terminal',name:'전력 복구',placementId:'p7',position:{x:8,y:1,z:8},settings:{duration:15}},
     {id:'g6',type:'extraction',name:'복귀 집결 지점',placementId:'p1',position:{x:11,y:1,z:8},settings:{duration:10}}
   ];
-  return {format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
+  return normalizeAreaCodes({format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
     description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',chapter:{id:'a',name:'관측 시설',description:''},missionCode:'A1',minPlayers:1,maxPlayers:4,
-    tiles,placements,gimmicks,links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
+    tiles,placements,gimmicks,programs:[],links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
     zones:[{id:'z1',name:'진입 시설',color:'#78968d'},{id:'z2',name:'관측 연구동',color:'#748eae'}],
-    rooms:[{id:'r1',code:'A-101',name:'진입실',zoneId:'z1',color:'#7ba392'},{id:'r2',code:'A-102',name:'진입 복도',zoneId:'z1',color:'#6c8992'},
-      {id:'r3',code:'A-103',name:'관측 홀',zoneId:'z1',color:'#809f9b'},{id:'r4',code:'B-201',name:'보안 통로',zoneId:'z2',color:'#b59b72'},
-      {id:'r5',code:'B-202',name:'연구실',zoneId:'z2',color:'#8c93b5'},{id:'r6',code:'B-203',name:'상층 연결로',zoneId:'z2',color:'#688ea5'},
-      {id:'r7',code:'B-204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]};
+    rooms:[{id:'r1',code:'101',name:'진입실',zoneId:'z1',color:'#7ba392'},{id:'r2',code:'102',name:'진입 복도',zoneId:'z1',color:'#6c8992'},
+      {id:'r3',code:'103',name:'관측 홀',zoneId:'z1',color:'#809f9b'},{id:'r4',code:'201',name:'보안 통로',zoneId:'z2',color:'#b59b72'},
+      {id:'r5',code:'202',name:'연구실',zoneId:'z2',color:'#8c93b5'},{id:'r6',code:'203',name:'상층 연결로',zoneId:'z2',color:'#688ea5'},
+      {id:'r7',code:'204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]});
 }
 export function emptyProject() {
   const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.placements=[];p.gimmicks=[];p.links=[];
-  p.rooms=[{id:'r1',code:'A-101',name:'첫 번째 방',zoneId:'z1',color:'#7ba392'}];p.zones=[p.zones[0]];return p;
+  p.rooms=[{id:'r1',code:'101',name:'첫 번째 구역',zoneId:'z1',color:'#7ba392'}];p.zones=[p.zones[0]];return p;
 }
 export function readProject(input) {
   const p=typeof input==='string'?JSON.parse(input):clone(input);
@@ -235,9 +238,17 @@ export function readProject(input) {
     }
   }
   for(const q of p.placements) if(!text(q.tileId)||!text(q.roomId)||!text(q.name)||!horizontal(q.x)||!horizontal(q.z)||!integer(q.y,-1024,1024)||![0,90,180,270].includes(q.rotation)) fail('타일 배치 데이터가 올바르지 않습니다.');
+  normalizeAreaCodes(p);
+  const areaCodes=new Map();
+  for(const q of p.placements){
+    if(!text(q.areaCode,40)||!q.areaCode.trim()||q.areaCode!==q.areaCode.trim())fail('하위 구역 이름은 앞뒤 공백 없이 1~40자로 입력하세요.');
+    if(!areaCodes.has(q.roomId))areaCodes.set(q.roomId,new Set());
+    if(areaCodes.get(q.roomId).has(q.areaCode))fail('같은 구역 안에서는 하위 구역 이름을 중복할 수 없습니다.');areaCodes.get(q.roomId).add(q.areaCode);
+  }
   for(const r of p.rooms) if(!text(r.name)||!text(r.code)||!text(r.zoneId)||!/^#[0-9a-f]{6}$/i.test(r.color)) fail('방 정보가 올바르지 않습니다.');
   for(const z of p.zones) if(!text(z.name)||!/^#[0-9a-f]{6}$/i.test(z.color)) fail('구역 정보가 올바르지 않습니다.');
   for(const g of p.gimmicks) if(!KINDS[g.type]||!text(g.name)||!text(g.placementId)||!g.position||!Object.values(g.position).every(Number.isFinite)||!['x','y','z'].every(k=>Number.isFinite(g.position[k]))||!g.settings||typeof g.settings!=='object') fail('기믹 정보가 올바르지 않습니다.');
   for(const l of p.links) if(!text(l.from)||!text(l.to)||!text(l.event)||!text(l.action)) fail('기믹 연결 정보가 올바르지 않습니다.');
+  if(p.programs===undefined)p.programs=[];assertPrograms(p.programs);
   return p;
 }

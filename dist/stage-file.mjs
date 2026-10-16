@@ -12,7 +12,7 @@ export function packStage(input){
     throw new Error(`${tile.name}: tile 폴더 기준 경로를 지정하세요. 예: 연구소/복도.nbt`);
   const manifest={format:stage.format,version:2,status:'draft',runtimeReady:false,tileRoot:'tile',cellSize:CELL,tileRules:TILE_RULES};
   const layout={placements:stage.placements.map(({x,y,z,...p})=>p),rooms:stage.rooms,zones:stage.zones,connections:stage.connections};
-  const values=[manifest,stage.stage,stage.tiles,layout,{gimmicks:stage.gimmicks,links:stage.links}];
+  const values=[manifest,stage.stage,stage.tiles,layout,{gimmicks:stage.gimmicks,links:stage.links,blockFormat:1,programs:stage.programs}];
   const files=Object.fromEntries(NAMES.map((name,i)=>[name,encoder.encode(JSON.stringify(values[i],null,2))]));
   if(Object.values(files).reduce((sum,b)=>sum+b.length,0)>MAX_BYTES)throw new Error('스테이지 설정은 압축 해제 기준 64MB 이하여야 합니다.');
   return zipSync(files,{level:6});
@@ -44,5 +44,6 @@ export function unpackStage(input){
     const at=p?.blockPosition;if(!at||!['x','y','z'].every(k=>Number.isInteger(at[k]))||at.y%8)throw new Error('스테이지 배치 좌표가 올바르지 않습니다.');
     const {blockPosition,...rest}=p;return {...rest,x:at.x/16,y:at.y/8,z:at.z/16};
   });
-  return readProject({format:'erosionsector-project',version:1,...stage,tiles,placements,rooms:layout.rooms,zones:layout.zones,gimmicks:logic.gimmicks,links:logic.links});
+  if(logic.programs!==undefined&&logic.blockFormat!==1)throw new Error('지원하지 않는 이벤트 블록 형식입니다.');
+  return readProject({format:'erosionsector-project',version:1,...stage,tiles,placements,rooms:layout.rooms,zones:layout.zones,gimmicks:logic.gimmicks,links:logic.links,programs:logic.programs===undefined?[]:logic.programs});
 }
