@@ -5,6 +5,7 @@
 - [제작·실행 가이드](docs/stage-runtime.ko.md)
 - [이벤트 블록 계약](docs/event-blocks.ko.md)
 - [보급 팩과 예비탄 설정](docs/supply.ko.md)
+- [체력·스태미너와 HUD](docs/vitals.ko.md)
 - 배포: https://erosion-sector-editor.vercel.app/
 
 새 스테이지/불러오기, 타일셋별 폴더 가져오기, 실제 NBT 배치 미리보기, 층별 박스 배치, 구역 트리, 명령어 터미널·보급함·키카드·화물·알람·탈출 설정을 제공합니다. 모드 0.4.0은 .esfile과 외부 NBT를 읽어 스테이지를 구성하고 정해진 이벤트 블록을 실행합니다.
