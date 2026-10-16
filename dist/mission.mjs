@@ -6,6 +6,7 @@ export function normalizeMission(p){
     if(!o||typeof o.id!=='string'||!o.id||o.id.length>160||ids.has(o.id)||typeof o.name!=='string'||!o.name.trim()||o.name.length>160||!OBJECTIVE_TYPES[o.type]||typeof o.targetId!=='string'||o.targetId.length>160||typeof o.command!=='string'||o.command.length>120||typeof o.required!=='boolean')throw new Error('임무 목표의 이름·종류·대상·명령어를 확인하세요.');ids.add(o.id);
   }
   for(const g of p.gimmicks||[]){const s=g.settings;if(!s||Array.isArray(s))throw new Error('기믹 설정이 올바르지 않습니다.');
+    if(g.type==='supply'){for(const key of ['ammoPacks','healthPacks'])if(s[key]!==undefined&&(!Number.isInteger(s[key])||s[key]<0||s[key]>36))throw new Error(g.name+': 보급 팩 수량은 0~36 정수여야 합니다.');if(Math.ceil((s.ammoPacks??0)/4)+Math.ceil((s.healthPacks??0)/4)>9)throw new Error(g.name+': 보급 팩은 종류별 4개씩 겹쳐 총 9칸 안에 들어가야 합니다.');}
     for(const key of ['enabled','wake','requireAll','unlockOnObjectives'])if(s[key]!==undefined&&typeof s[key]!=='boolean')throw new Error(g.name+': 켜기/끄기 설정을 확인하세요.');
     for(const key of ['commands','spawnTiles'])if(s[key]!==undefined&&(!Array.isArray(s[key])||s[key].length>(key==='commands'?64:1000)||s[key].some(v=>typeof v!=='string'||!v.trim()||v.length>(key==='commands'?120:160))))throw new Error(g.name+': 명령어 또는 생성 타일 목록을 확인하세요.');
     for(const key of ['entity','containerId','keyId','objectKey','wakeRoomId','mode','spawnRule','finishRule'])if(s[key]!==undefined&&(typeof s[key]!=='string'||s[key].length>160))throw new Error(g.name+': 장치 설정 문자열을 확인하세요.');
