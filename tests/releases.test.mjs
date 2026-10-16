@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,createHash,sign} from 'node:crypto';
+import {verifyRelease} from '../lib/releases.mjs';
+function fixture(){const keys=generateKeyPairSync('ed25519'),der=keys.publicKey.export({type:'spki',format:'der'}),keyId=createHash('sha256').update(der).digest('hex');const m={schema:'erosionsector.release/1',kind:'mod',modId:'erosionsector',version:'0.4.3',minecraft:'1.21.1',loader:'neoforge',filename:'erosionsector-0.4.3.jar',size:100,sha256:'a'.repeat(64),keyId};const bytes=Buffer.from(JSON.stringify(m));return {identity:{keyId,publicKey:der.toString('base64')},envelope:{algorithm:'Ed25519',payload:bytes.toString('base64'),signature:sign(null,bytes,keys.privateKey).toString('base64')}};}
+test('valid Ed25519 release is accepted for its exact version',()=>{const f=fixture();assert.equal(verifyRelease(f.envelope,f.identity,'0.4.3').version,'0.4.3');});
+test('manifest edit, wrong key, version confusion and algorithm changes fail closed',()=>{const f=fixture(),wrong=fixture();const edit={...f.envelope,payload:Buffer.from(Buffer.from(f.envelope.payload,'base64').toString().replace('"size":100','"size":101')).toString('base64')};assert.throws(()=>verifyRelease(edit,f.identity,'0.4.3'));assert.throws(()=>verifyRelease(f.envelope,wrong.identity,'0.4.3'));assert.throws(()=>verifyRelease(f.envelope,f.identity,'0.4.2'));assert.throws(()=>verifyRelease({...f.envelope,algorithm:'none'},f.identity,'0.4.3'));assert.throws(()=>verifyRelease(f.envelope,f.identity,'../key'));});

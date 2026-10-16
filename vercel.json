@@ -2,5 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "outputDirectory": "dist",
-  "installCommand": "node -e \"console.log('Static app: no install step required')\""
+  "installCommand": "npm ci --omit=dev",
+  "regions": ["hnd1"],
+  "functions": {
+    "api/records.js": {"maxDuration": 15, "includeFiles": "dist/releases/**"}
+  },
+  "headers": [
+    {"source":"/releases/:path*","headers":[{"key":"Cache-Control","value":"public, max-age=0, must-revalidate"}]}
+  ]
 }
