@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-17
 
+0.4.26은 사용하지 않는 터미널 블록 3종과 탈출 스캐너 등록·리소스·시설 터미널 통신을 제거했습니다. 구형 터미널을 참조하던 TaCZ 상호작용 태그도 제거했습니다. TaCZ 자체 파일은 수정하지 않으며 총기 조작과 기존 보급함·문 E키 처리는 유지합니다. 크리에이티브 목록은 Minecraft 원본 CreativeModeTab.buildContents와 NeoForge의 탭 빌드 이벤트를 사용해 실제 표시 항목과 제거된 레지스트리를 검사합니다.
+
 0.4.25는 설치된 Minecraft 1.21.1의 `EntityRenderer.getPackedLightCoords(Entity,float)`가 `Entity.getLightProbePosition`을 한 개의 블록 좌표로 바꿔 블록·하늘 광원을 읽는 흐름을 확인했습니다. 클라이언트 Mixin으로 ES 문 칸의 비어 있는 반쪽에 놓인 좌표만 같은 방의 인접 칸으로 보정하며, 기존 `getBlockLightLevel/getSkyLightLevel` 호출과 렌더러별 특수 처리는 유지합니다. 기존 기본 클라이언트에서 문 칸 밝기 0·같은 방 밝기 9/8에도 몹·아이템 렌더 값이 0인 것을 재현했고 수정 후 9/8로 일치했습니다. 문 반대편의 어두운 방은 0을 유지합니다. 일반·보안 문의 양쪽·네 방향·형상 내부 좌표와 일반 블록을 GameTest로 검사합니다. 외부 모드의 JAR와 설정은 수정하지 않습니다.
 
 0.4.24의 ES 설정 진입점은 NeoForge 21.1.259 원본에서 확인한 `ScreenEvent.Init.Post`의 버튼 등록을 사용합니다. 메인·일시정지 메뉴의 설정 버튼 영역 안에서 두 버튼을 배치합니다. 설정 편집은 `ConfigurationSectionScreen`과 공개 `Context.section`을 사용하고 일반·개발자 항목의 입력 목록을 분리해 초기화 범위도 제한합니다. `devmod`는 설정 파일 전용이며 UI에는 편집·초기화 대상으로 노출하지 않습니다. 조작은 설치된 Minecraft의 `ControlsScreen`과 키 지정 화면으로 연결하고 TaCZ 원본 키 처리나 설정은 수정하지 않습니다. 한국어 실제 클라이언트에서 저장·초기화, 개발자 접근 차단·실행 중 해제와 GUI 배율 2·3의 버튼 배치를 검증했습니다.
