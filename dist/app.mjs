@@ -1,4 +1,4 @@
-import {CELL,FACES,KINDS,uid,clone,tileOf,dimensions,bounds,placementError,portError,connections,validate,demoProject,emptyProject,readProject,worldPoint} from './core.mjs';
+import {CELL,FACES,KINDS,uid,clone,tileOf,dimensions,bounds,placementError,portError,connections,validate,demoProject,emptyProject,worldPoint,validateProjectDraft} from './core.mjs';
 import {inspectStructure,restoreProject,loadTileFolder} from './nbt.mjs';
 import {packStage,unpackStage} from './stage-file.mjs';
 import {createMap} from './map.mjs';
@@ -21,7 +21,7 @@ const directionName={north:'북쪽',east:'동쪽',south:'남쪽',west:'서쪽'};
 const map=createMap($('map'),()=>({...ui,project}),{
   select:selection=>{ui.selection=selection;const p=selection?.kind==='placement'&&project.placements.find(p=>p.id===selection.id);if(p){ui.activeRoomId=p.roomId;closedAreas.delete(p.roomId);}if(ui.tab==='rooms')renderLibrary();renderInspector();map.draw();},
   place:placeTile,move:moveTile,gimmick:placeGimmick,notify:toast,
-  drop:item=>{const ok=item.brush.kind==='tile'?placeTile(item.placement.x,item.placement.y,item.placement.z,item.brush):placeGimmick(item.placement,item.position,item.brush.id);if(ok){ui.mode='select';ui.brush=null;renderAll();}},
+  drop:item=>{ui.mode='select';ui.brush=null;paletteWorkspaceChanged=false;const ok=item.brush.kind==='tile'?placeTile(item.placement.x,item.placement.y,item.placement.z,item.brush):placeGimmick(item.placement,item.position,item.brush.id);if(!ok)renderAll();},
   dropPreview:state=>{const el=$('paletteDropStatus');el.hidden=!state;if(state){el.textContent=state.message;el.classList.toggle('invalid',!state.valid);}},
   scan:(id,index,patch)=>commit(p=>updateScanStep(p.gimmicks.find(g=>g.id===id),index,patch)),
   cancel:()=>{ui.mode='select';ui.brush=null;renderAll();},
@@ -55,7 +55,8 @@ function openDatabase(){
   return dbPromise;
 }
 async function writeAutoSave(){
-  const sequence=++saveSequence,value=clone(project);
+  // Revisions are immutable; IndexedDB snapshots the value in put(), without a second manual copy.
+  const sequence=++saveSequence,value=project;
   try{const db=await openDatabase();await new Promise((resolve,reject)=>{const transaction=db.transaction('projects','readwrite');transaction.objectStore('projects').put(value,'current');transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error);});
     if(sequence===saveSequence){$('saveStatus').textContent='자동 저장됨';$('saveStatus').className='save-status saved';}
   }catch{if(sequence===saveSequence){$('saveStatus').textContent='파일로 저장해 주세요';$('saveStatus').className='save-status';toast('브라우저 자동 저장에 실패했습니다. 스테이지 저장으로 파일을 백업하세요.',true);}}
@@ -63,8 +64,9 @@ async function writeAutoSave(){
 function scheduleSave(){clearTimeout(saveTimer);$('saveStatus').textContent='저장 중…';$('saveStatus').className='save-status';saveTimer=setTimeout(writeAutoSave,350);}
 function commit(change,message){
   const next=clone(project);
-  let checked;try{change(next);checked=readProject(next);}catch(error){toast(error.message,true);return false;}
-  undo.push(clone(project));if(undo.length>25)undo.shift();redo=[];project=checked;renderAll();scheduleSave();if(message)toast(message);return true;
+  let checked;try{change(next);checked=validateProjectDraft(next);}catch(error){toast(error.message,true);return false;}
+  // Keep the immutable previous revision; only the owned draft above needs a deep copy.
+  undo.push(project);if(undo.length>25)undo.shift();redo=[];project=checked;renderAll();scheduleSave();if(message)toast(message);return true;
 }
 async function setProject(value,message){
   let next,linkError='';try{next=await restoreProject(value);}catch(error){toast(error.message,true);return;}
@@ -248,8 +250,8 @@ const actions={
   'close-dialog':()=>$('dialog').close(),
   'import-nbt':()=>{pendingAssetTileId=null;$('nbtInput').click();},
   'attach-asset':()=>{pendingAssetTileId=ui.selection?.id;$('nbtInput').click();},
-  'undo':()=>{if(!undo.length)return;redo.push(clone(project));project=undo.pop();renderAll();scheduleSave();},
-  'redo':()=>{if(!redo.length)return;undo.push(clone(project));project=redo.pop();renderAll();scheduleSave();},
+  'undo':()=>{if(!undo.length)return;redo.push(project);project=undo.pop();renderAll();scheduleSave();},
+  'redo':()=>{if(!redo.length)return;undo.push(project);project=redo.pop();renderAll();scheduleSave();},
   'rotate':()=>{
     const p=ui.selection?.kind==='placement'&&project.placements.find(p=>p.id===ui.selection.id);if(p)moveTile({...p,rotation:(p.rotation+90)%360});
   },
@@ -293,13 +295,13 @@ document.addEventListener('click',event=>{
 });
 document.addEventListener('input',event=>{if(event.target.id==='tileSearch'){ui.search=event.target.value;renderTileList();}if(event.target.id==='areaSearch'){ui.areaSearch=event.target.value;renderAreaTree();}});
 document.addEventListener('toggle',event=>{if(!event.target.matches?.('.area-folder'))return;const id=event.target.dataset.folder;if(event.target.open)closedAreas.delete(id);else closedAreas.add(id);},true);
-let paletteSource=null;
-function finishPaletteDrag(){if(!paletteSource)return;paletteSource.classList.remove('palette-dragging');paletteSource=null;map.endPaletteDrag();renderAll();}
+let paletteSource=null,paletteWorkspaceChanged=false;
+function finishPaletteDrag(){if(!paletteSource)return;paletteSource.classList.remove('palette-dragging');paletteSource=null;map.endPaletteDrag();if(paletteWorkspaceChanged){paletteWorkspaceChanged=false;renderAll();}}
 document.addEventListener('dragstart',event=>{
   const source=event.target.closest('[data-library-tile],[data-gimmick-type]');if(!source)return;
   const brush=source.dataset.libraryTile?{kind:'tile',id:source.dataset.libraryTile,rotation:ui.brush?.kind==='tile'&&ui.brush.id===source.dataset.libraryTile?ui.brush.rotation||0:0}:{kind:'gimmick',id:source.dataset.gimmickType};
   event.dataTransfer.setData(PALETTE_MIME,JSON.stringify(brush));event.dataTransfer.effectAllowed='copy';paletteSource=source;source.classList.add('palette-dragging');
-  ui.workspace='map';$('canvasWrap').hidden=false;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
+  paletteWorkspaceChanged=ui.workspace!=='map';ui.workspace='map';$('canvasWrap').hidden=false;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
 });
 document.addEventListener('dragend',finishPaletteDrag);
 document.addEventListener('drop',finishPaletteDrag);

@@ -18,9 +18,9 @@ export function relatedPrograms(project,selection){
   return project.programs.flatMap(p=>{const refs=programReferences(p).filter(r=>r.kind===selection.kind&&r.id===selection.id||selection.kind==='placement'&&(r.kind==='door'&&r.id.startsWith(selection.id+':')||r.kind==='gimmick'&&project.gimmicks.some(g=>g.id===r.id&&g.placementId===selection.id)));return refs.length?[{program:p,refs}]:[];});
 }
 /** Dragging stores cell origins, not centers, including rotated schematics. */
-export function scanMove(project,g,index,world){
+export function scanMove(project,g,index,world,scene=null){
   const old=scanSteps(g)[index];if(!old)throw new Error('스캔 단계가 없습니다.');
-  const candidates=project.placements.flatMap(p=>{const t=tileOf(project,p);if(!t)return [];const local=inversePoint({x:world.x-p.x*16,y:world.y-p.y*8,z:world.z-p.z*16},t,p.rotation);return local.x>=0&&local.z>=0&&local.x<t.size.x&&local.z<t.size.z&&local.y>=0&&local.y<t.size.y?[{p,local}]:[];});
+  const candidates=project.placements.flatMap(p=>{const t=scene?scene.tiles.get(p.tileId):tileOf(project,p);if(!t)return [];const local=inversePoint({x:world.x-p.x*16,y:world.y-p.y*8,z:world.z-p.z*16},t,p.rotation);return local.x>=0&&local.z>=0&&local.x<t.size.x&&local.z<t.size.z&&local.y>=0&&local.y<t.size.y?[{p,local}]:[];});
   const hit=candidates.find(c=>c.p.id===old.placementId)||candidates[0];if(!hit)throw new Error('스캔 중심은 배치된 타일 안에 있어야 합니다.');
   return {placementId:hit.p.id,position:{x:Math.floor(hit.local.x),y:hit.local.y,z:Math.floor(hit.local.z)}};
 }
@@ -28,7 +28,7 @@ export function updateScanStep(g,index,patch){
   if(index===0){if(patch.position)g.position=patch.position;if(patch.placementId)g.placementId=patch.placementId;if(patch.radius!==undefined)g.settings.radius=patch.radius;}
   else {if(!g.settings.steps?.[index-1])throw new Error('스캔 단계가 없습니다.');Object.assign(g.settings.steps[index-1],patch);}
 }
-export function scanCenter(project,step){const p=project.placements.find(p=>p.id===step.placementId),t=p&&tileOf(project,p);return t?worldPoint({...step.position,x:step.position.x+.5,z:step.position.z+.5},t,p):null;}
+export function scanCenter(project,step,scene=null){const p=scene?scene.placements.get(step.placementId):project.placements.find(p=>p.id===step.placementId),t=p&&(scene?scene.tiles.get(p.tileId):tileOf(project,p));return t?worldPoint({...step.position,x:step.position.x+.5,z:step.position.z+.5},t,p):null;}
 
 const candidateCache=new WeakMap();
 /** Conservative non-air preview only. Native collision/support shapes remain authoritative. */

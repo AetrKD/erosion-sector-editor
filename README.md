@@ -10,6 +10,7 @@
 
 - [제작·실행 가이드](docs/stage-runtime.ko.md)
 - [제작용 콘텐츠와 제거 항목](docs/content.ko.md)
+- [편집기 최적화와 측정 범위](docs/editor-performance.ko.md)
 - [지도 편집·이벤트 모의 실행·묶음 복제](docs/editor-authoring.ko.md)
 - [원형 스캔·랜덤 위치·연속 단계](docs/scans.ko.md)
 - [이벤트 블록 계약](docs/event-blocks.ko.md)

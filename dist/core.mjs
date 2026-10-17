@@ -91,16 +91,17 @@ export function connections(project) {
   }
   return {ports,pairs,connected};
 }
-export function placementError(project,candidate,ignoreId=candidate.id) {
-  const tile=tileOf(project,candidate);
+export function placementError(project,candidate,ignoreId=candidate.id,index=null) {
+  const tile=index?index.tiles.get(candidate.tileId):tileOf(project,candidate);
   if(!tile) return '타일 원본을 찾을 수 없습니다.';
   if(!horizontal(candidate.x)||!horizontal(candidate.z)||!Number.isInteger(candidate.y)||Math.abs(candidate.y)>1024) return '가로 좌표는 1블록, 층 높이는 8블록 단위여야 합니다.';
   if(![0,90,180,270].includes(candidate.rotation)) return '회전은 0/90/180/270도만 가능합니다.';
   const occupied=bounds(tile,candidate);
-  for(const other of project.placements) {
+  for(const entry of index?.entries||project.placements) {
+    const other=index?entry.placement:entry;
     if(other.id===ignoreId) continue;
-    const otherTile=tileOf(project,other);
-    if(otherTile){const at=conflictingBlock(tile,candidate,occupied,otherTile,other,bounds(otherTile,other));
+    const otherTile=index?entry.tile:tileOf(project,other);
+    if(otherTile){const at=conflictingBlock(tile,candidate,occupied,otherTile,other,index?entry.box:bounds(otherTile,other));
       if(at)return tile.asset?.occupancy&&otherTile.asset?.occupancy?`다른 타일의 블록과 겹칩니다. 블록 좌표 X ${at.x}, Y ${at.y}, Z ${at.z}`:'설계도 점유 정보가 없는 타일의 저장 범위와 겹칩니다. 실제 설계도를 연결해 블록 겹침을 검사하세요.';
     }
   }
@@ -220,6 +221,10 @@ export function emptyProject() {
 }
 export function readProject(input) {
   const p=typeof input==='string'?JSON.parse(input):clone(input);
+  return validateProjectDraft(p);
+}
+/** Normalize an owned draft. File imports use readProject, which still copies its input. */
+export function validateProjectDraft(p) {
   const fail=message=>{throw new Error(message);};
   const text=(value,max=160)=>typeof value==='string'&&value.length<=max;
   const integer=(value,min,max)=>Number.isInteger(value)&&value>=min&&value<=max;
