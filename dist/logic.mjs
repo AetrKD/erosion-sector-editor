@@ -50,12 +50,12 @@ export const CATEGORY_LABELS={trigger:'발생',condition:'조건',control:'흐�
 const id=prefix=>prefix+'_'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
 export function accepts(slot,type){const category=BLOCKS[type]?.category;return slot==='statement'?category==='action'||category==='control':slot===category;}
 export function targetOptions(project,kind){
-  if(kind==='scan')return project.gimmicks.filter(g=>g.type==='scan'||g.type==='extraction').map(g=>[g.id,g.name]);
+  if(kind==='scan')return project.gimmicks.filter(g=>g.type==='scan'||g.type==='extraction').map(g=>[g.id,`${project.rooms.find(r=>r.id===project.placements.find(p=>p.id===g.placementId)?.roomId)?.code||'?'} / ${project.placements.find(p=>p.id===g.placementId)?.areaCode||'?'} · ${g.name}`]);
   if(kind==='objective')return (project.objectives||[]).map(o=>[o.id,o.name]);
   if(kind==='room')return project.rooms.map(r=>[r.id,`${r.code}구역 · ${r.name}`]);
   if(kind==='placement')return project.placements.map(p=>[p.id,`${project.rooms.find(r=>r.id===p.roomId)?.code||'?'} / ${p.areaCode||'?'}구역 (${project.tiles.find(t=>t.id===p.tileId)?.name||'타일'})`]);
   if(kind==='door')return project.placements.flatMap(p=>(project.tiles.find(t=>t.id===p.tileId)?.ports||[]).map(port=>[p.id+':'+port.id,`${project.rooms.find(r=>r.id===p.roomId)?.code||'?'} / ${p.areaCode||'?'} · ${port.name}`]));
-  return project.gimmicks.filter(g=>kind==='gimmick'||g.type===kind).map(g=>[g.id,g.name]);
+  return project.gimmicks.filter(g=>kind==='gimmick'||g.type===kind).map(g=>[g.id,`${project.rooms.find(r=>r.id===project.placements.find(p=>p.id===g.placementId)?.roomId)?.code||'?'} / ${project.placements.find(p=>p.id===g.placementId)?.areaCode||'?'} · ${g.name}`]);
 }
 export function createBlock(type,project){
   const def=BLOCKS[type];if(!def)throw new Error('지원하지 않는 이벤트 블록입니다.');

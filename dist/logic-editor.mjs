@@ -1,10 +1,11 @@
 import {BLOCKS,CATEGORY_LABELS,accepts,targetOptions,createBlock,createProgram,findBlock,slotOf,insertBlock,moveBlock,duplicateBlock,programIssues,describeProgram} from './logic.mjs';
+import {referenceTarget} from './authoring.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const slotLabels={trigger:'시작 이벤트 · 교체',actions:'실행 순서',items:'하위 블록',conditions:'조건 · 모두 만족',then:'참일 때 실행',else:'아닐 때 실행',body:'반복할 동작'};
-export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRender,showPreview}){
+export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRender,showPreview,onLocate,onSimulate}){
   const state={id:null,category:'action',parentId:'',slot:'actions'};let drag=null;
   const current=()=>getProject().programs.find(p=>p.id===state.id);
-  function choose(id){state.id=id;state.parentId='';state.slot='actions';onSelect?.();onRender();}
+  function choose(id,blockId){state.id=id;state.parentId='';state.slot='actions';onSelect?.();onRender();if(blockId)requestAnimationFrame(()=>{const el=[...panel.querySelectorAll('[data-node]')].find(el=>el.dataset.node===blockId);el?.classList.add('reference-focus');el?.scrollIntoView({block:'center',behavior:'smooth'});});}
   function add(){const program=createProgram(getProject());if(commit(p=>p.programs.push(program))){choose(program.id);notify('이벤트를 만들었습니다. 시작 이벤트와 실행 블록을 연결하세요.');}}
   function library(){
     const programs=getProject().programs||[];
@@ -23,7 +24,7 @@ export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRen
   function renderWorkspace(program,project){
     const slot=location(),issues=programIssues({...project,programs:[program]});
     const palette=Object.entries(BLOCKS).filter(([,d])=>d.category===state.category).map(([type,def])=>`<button class="palette-block block-${def.category}" draggable="true" data-logic="add" data-block-type="${type}" ${!accepts(slot.type,type)?'aria-disabled="true"':''}>${esc(def.label)}<span>＋</span></button>`).join('');
-    return `<div class="logic-program-settings"><label>이벤트 이름<input data-program-field="name" value="${esc(program.name)}" maxlength="160" required></label><label class="logic-check"><input type="checkbox" data-program-field="enabled" ${program.enabled?'checked':''}> 사용</label><label class="logic-check"><input type="checkbox" data-program-field="once" ${program.once?'checked':''}> 한 번만</label><button class="button" data-logic="preview">흐름 보기</button><button class="icon-button" data-logic="delete-program" aria-label="이벤트 삭제">×</button></div><div class="logic-workspace"><aside class="block-palette" aria-label="이벤트 블록 목록"><div class="block-categories">${Object.entries(CATEGORY_LABELS).map(([key,label])=>`<button data-logic="category" data-category="${key}" aria-pressed="${state.category===key}" class="category-${key}">${label}</button>`).join('')}</div><p class="slot-hint">선택 위치: <strong>${esc(slotLabels[state.slot])}</strong><br>${slot.type==='statement'?'흐름·실행':CATEGORY_LABELS[slot.type]} 블록을 넣을 수 있습니다.</p>${palette}</aside><div class="block-canvas" aria-label="이벤트 블록 조립 영역"><div class="block-rule-note">${program.once?'조건 충족 후 한 번 실행':'조건이 다시 충족되면 재실행 허용'} · 발생 블록은 노랑, 조건은 청록, 흐름은 보라, 실행은 파랑</div>${slotHTML(program,'','trigger','trigger',true)}<div class="event-flow-arrow">↓ 순서대로 실행</div>${slotHTML(program,'','actions','statement')}<div class="logic-issues" role="status">${issues.map(i=>`<p>${i.severity==='error'?'△':'ⓘ'} ${esc(i.message)}</p>`).join('')||'<p class="good">✓ 블록 연결과 대상 참조가 올바릅니다.</p>'}</div><p class="logic-runtime-note">모드 0.4.0에서 실행됩니다. 대기와 반복은 서버 틱을 기준으로 처리합니다.</p></div></div>`;
+    return `<div class="logic-program-settings"><label>이벤트 이름<input data-program-field="name" value="${esc(program.name)}" maxlength="160" required></label><label class="logic-check"><input type="checkbox" data-program-field="enabled" ${program.enabled?'checked':''}> 사용</label><label class="logic-check"><input type="checkbox" data-program-field="once" ${program.once?'checked':''}> 한 번만</label><button class="button" data-logic="preview">흐름 보기</button><button class="button" data-logic="simulate">모의 실행</button><button class="icon-button" data-logic="delete-program" aria-label="이벤트 삭제">×</button></div><div class="logic-workspace"><aside class="block-palette" aria-label="이벤트 블록 목록"><div class="block-categories">${Object.entries(CATEGORY_LABELS).map(([key,label])=>`<button data-logic="category" data-category="${key}" aria-pressed="${state.category===key}" class="category-${key}">${label}</button>`).join('')}</div><p class="slot-hint">선택 위치: <strong>${esc(slotLabels[state.slot])}</strong><br>${slot.type==='statement'?'흐름·실행':CATEGORY_LABELS[slot.type]} 블록을 넣을 수 있습니다.</p>${palette}</aside><div class="block-canvas" aria-label="이벤트 블록 조립 영역"><div class="block-rule-note">${program.once?'조건 충족 후 한 번 실행':'조건이 다시 충족되면 재실행 허용'} · 발생 블록은 노랑, 조건은 청록, 흐름은 보라, 실행은 파랑</div>${slotHTML(program,'','trigger','trigger',true)}<div class="event-flow-arrow">↓ 순서대로 실행</div>${slotHTML(program,'','actions','statement')}<div class="logic-issues" role="status">${issues.map(i=>`<p>${i.severity==='error'?'△':'ⓘ'} ${esc(i.message)}</p>`).join('')||'<p class="good">✓ 블록 연결과 대상 참조가 올바릅니다.</p>'}</div><p class="logic-runtime-note">모드 0.5.0 이상에서 스캔을 포함한 이벤트를 실행합니다. 대기와 반복은 서버 틱을 기준으로 처리합니다.</p></div></div>`;
   }
   function slotHTML(owner,parentId,name,kind,single=false){
     const active=state.parentId===parentId&&state.slot===name,blocks=single?[owner[name]]:owner[name];
@@ -38,7 +39,8 @@ export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRen
     if(f.kind==='number')input=`<input type="number" ${attributes} value="${value}" min="${f.min}" max="${f.max}" step="${block.type==='flow.repeat'?'1':'any'}" required>`;
     else if(f.kind==='text')input=`<input ${attributes} value="${esc(value)}" maxlength="${f.max}" required>`;
     else{const options=f.kind==='choice'?f.options:targetOptions(getProject(),f.kind);input=`<select ${attributes}><option value="" ${value===''?'selected':''}>대상을 선택하세요</option>${value&&!options.some(([id])=>id===value)?`<option value="${esc(value)}" selected>없는 대상 · 다시 선택</option>`:''}${options.map(([id,label])=>`<option value="${esc(id)}" ${id===value?'selected':''}>${esc(label)}</option>`).join('')}</select>`;}
-    return `<label>${esc(f.label)}${input}</label>`;
+    const ref=referenceTarget(f.kind,value);
+    return `<label>${esc(f.label)}${input}${ref?`<button type="button" class="subtle-button target-locate" data-logic="locate" data-target-kind="${ref.kind}" data-target-id="${esc(ref.id)}">대상 위치 보기 ↗</button>`:''}</label>`;
   }
   function edit(fn){const selected=state.id;return commit(p=>{const program=p.programs.find(q=>q.id===selected);if(!program)throw new Error('이벤트를 먼저 선택하세요.');fn(program,p);});}
   function addAt(type,parentId=state.parentId,name=state.slot,index){return edit((program,p)=>insertBlock(program,parentId,name,createBlock(type,p),index));}
@@ -54,6 +56,8 @@ export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRen
     if(action==='category'){state.category=button.dataset.category;render();return;}
     if(action==='slot'){state.parentId=button.dataset.parent;state.slot=button.dataset.slot;const kind=location()?.type;if(kind==='trigger'||kind==='condition')state.category=kind;else if(['trigger','condition'].includes(state.category))state.category='action';render();return;}
     if(action==='add'){if(button.getAttribute('aria-disabled')==='true'){notify('발생·조건·실행 블록에 맞는 연결 위치를 먼저 선택하세요.',true);return;}addAt(button.dataset.blockType);return;}
+    if(action==='locate')return onLocate?.(button.dataset.targetKind,button.dataset.targetId);
+    if(action==='simulate')return onSimulate?.();
     if(action==='preview')return showPreview(current().name,describeProgram(current(),getProject()));
     if(action==='delete-program'){const id=state.id;if(commit(p=>{p.programs=p.programs.filter(q=>q.id!==id);}))choose(getProject().programs[0]?.id||null);return;}
     const found=findBlock(current(),button.dataset.nodeId);if(!found)return;
