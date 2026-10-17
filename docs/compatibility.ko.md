@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-17
 
+0.4.28은 NeoForge 21.1.259의 CreativeModeTab.Builder.withTabsBefore가 지정한 탭 뒤에 배치하는 순서 규칙을 원본 소스로 확인하고 ES 건축 다음에 ES 아이템이 오도록 등록합니다. 자동 클라이언트 검사도 원본 크리에이티브 페이지 버튼으로 두 탭에 접근해 표시 목록과 3D 아이콘을 확인합니다. 장비 선택기는 기존 ES의 KeyInteractable·BlockInteractionPayload와 장비 선택 화면을 재사용하며, TaCZ·외부 모드 파일을 수정하지 않습니다.
+
 0.4.27의 블록 아이콘은 설치된 Minecraft 1.21.1 원본 ssets/minecraft/models/block/block.json의 GUI 회전·배율·측면 조명 값을 ES 아이템 모델에 적용합니다. 블록 배치 모델이나 외부 모드 파일을 변경하지 않습니다. 숨긴 전용 클라이언트에서 실제 크리에이티브 화면과 여섯 블록의 베이크된 모델을 확인합니다.
 
 0.4.26은 사용하지 않는 터미널 블록 3종과 탈출 스캐너 등록·리소스·시설 터미널 통신을 제거했습니다. 구형 터미널을 참조하던 TaCZ 상호작용 태그도 제거했습니다. TaCZ 자체 파일은 수정하지 않으며 총기 조작과 기존 보급함·문 E키 처리는 유지합니다. 크리에이티브 목록은 Minecraft 원본 CreativeModeTab.buildContents와 NeoForge의 탭 빌드 이벤트를 사용해 실제 표시 항목과 제거된 레지스트리를 검사합니다.
