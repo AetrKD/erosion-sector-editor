@@ -11,3 +11,6 @@
 /* Full project name remains readable on narrow screens. */
 .brand>strong{font-size:clamp(14px,1.4vw,20px);letter-spacing:.02em}
 .stage-metadata{margin:14px 0;display:grid;gap:7px;font-size:11px}.stage-metadata>div{display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px}.stage-metadata dt{color:var(--muted)}.stage-metadata dd{margin:0;overflow-wrap:anywhere}
+
+.tile-card[draggable],.gimmick-card[draggable]{cursor:grab}.tile-card[draggable]:active,.gimmick-card[draggable]:active{cursor:grabbing}.palette-dragging{opacity:.45}.tile-preview svg{pointer-events:none}
+.palette-drop-status{position:absolute;left:50%;bottom:95px;transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 14px;background:#213b2ef2;border:1px solid #94c883;color:#d7f4ce;border-radius:6px;pointer-events:none;font-size:12px;line-height:1.6;z-index:2}.palette-drop-status.invalid{background:#3b252bf2;border-color:#ce818d;color:#f6c6ca}.palette-drop-status[hidden]{display:none}#map[data-drop-state=valid]{outline:2px solid #9acb8f;outline-offset:-3px}#map[data-drop-state=invalid]{outline:2px solid #dc9399;outline-offset:-3px}

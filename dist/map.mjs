@@ -2,11 +2,13 @@ import {isScan,scanSteps} from './scan.mjs';
 import {scanCenter,scanMove,scanCandidates} from './authoring.mjs';
 import {dimensions,worldPoint,tileOf,connections,placementError,KINDS,inversePoint} from './core.mjs';
 import {occupancy} from './occupancy.mjs';
-import {boxCorners,createCamera,pickBox,sceneTarget,createIsoRenderer,drawIsoFallback} from './iso.mjs';
+import {PALETTE_MIME,palettePlacement} from './palette-placement.mjs';
+import {boxCorners,createCamera,pickBox,sceneTarget,createIsoRenderer,drawIsoFallback,pointOnFloor} from './iso.mjs';
 export function createMap(canvas,get,callbacks){
   const ctx=canvas.getContext('2d');
   let width=0,height=0,scale=65,pan={x:0,y:0},hover=null,drag=null,space=false,initialized=false;
   let isoRenderer,isoCamera,isoBoxes=[];
+  let paletteBrush=null,paletteDrop=null;
   let networkProject,network,drawRequest=null,destroyed=false;
   const planMasks=new WeakMap(),scanMasks=new WeakMap();
   function slicePath(tile,floor,rotation){
@@ -63,7 +65,7 @@ export function createMap(canvas,get,callbacks){
       if(z%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(z*16),Math.min(width-42,Math.max(15,pan.x-38)),sy+13);}
     }
   }
-  function drawPlacement(p,ghost=false,preview=false){
+  function drawPlacement(p,ghost=false,preview=false,previewError){
     const state=get(),project=state.project,tile=tileOf(project,p);if(!tile)return;
     const size=dimensions(tile,p.rotation),point=screen(p.x,p.z),w=size.x/16*scale,h=size.z/16*scale;
     if(point.x+w<0||point.z+h<0||point.x>width||point.z>height)return;
@@ -71,7 +73,7 @@ export function createMap(canvas,get,callbacks){
     const selected=state.selection?.kind==='placement'&&state.selection.id===p.id;
     const roomSelected=state.selection?.kind==='room'&&state.selection.id===p.roomId;
     ctx.save();if(ghost)ctx.globalAlpha=.18;
-    const invalid=preview&&placementError(project,p);
+    const invalid=preview&&(previewError??placementError(project,p));
     ctx.fillStyle=invalid?'#ac626348':color+(selected?'70':roomSelected?'70':'38');ctx.fillRect(point.x+2,point.z+2,w-4,h-4);
     ctx.strokeStyle=invalid?'#e39494':selected||roomSelected?'#c4e7b8':color+'ba';ctx.lineWidth=selected?2:1;
     if(ghost||preview)ctx.setLineDash([5,4]);ctx.strokeRect(point.x+2.5,point.z+2.5,w-5,h-5);ctx.setLineDash([]);
@@ -165,16 +167,43 @@ export function createMap(canvas,get,callbacks){
   function draw(){
     if(drawRequest!==null){cancelAnimationFrame(drawRequest);drawRequest=null;}
     if(!width)return;const state=get();ctx.clearRect(0,0,width,height);ctx.fillStyle='#111a23';ctx.fillRect(0,0,width,height);
-    if(state.view==='iso'){drawIso();callbacks.zoom?.(Math.round(scale/65*100));return;}
+    if(state.view==='iso'){drawIso();drawPalettePreview();callbacks.zoom?.(Math.round(scale/65*100));return;}
     drawGrid();
     if(state.ghost)for(const p of state.project.placements)if(!active(p))drawPlacement(p,true);
     for(const p of state.project.placements)if(active(p)&&p.id!==drag?.placement?.id)drawPlacement(p);
     drawPorts();drawGimmicks();
-    if(drag?.placement&&hover){const p={...drag.placement,x:snap(hover.x)-drag.offset.x,z:snap(hover.z)-drag.offset.z};drawPlacement(p,false,true);}
+    if(paletteBrush)drawPalettePreview();
+    else if(drag?.placement&&hover){const p={...drag.placement,x:snap(hover.x)-drag.offset.x,z:snap(hover.z)-drag.offset.z};drawPlacement(p,false,true);}
     else if(state.mode==='paint'&&state.brush?.kind==='tile'&&hover){const t=state.project.tiles.find(t=>t.id===state.brush.id);if(t)drawPlacement({id:'preview',tileId:t.id,x:snap(hover.x),z:snap(hover.z),y:state.floor,rotation:state.brush.rotation||0,roomId:state.activeRoomId},false,true);}
     if(!state.project.placements.length){ctx.fillStyle='#7b919f';ctx.font='13px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.fillText('왼쪽에서 타일을 골라 첫 공간을 배치하세요',width/2,height/2);ctx.textAlign='left';}
     callbacks.zoom?.(Math.round(scale/65*100));
   }
+  function drawPalettePreview(){
+    const item=paletteDrop;if(!item)return;const state=get(),valid=!item.error,color=valid?'#bbf4ac':'#ef9696';
+    if(item.brush?.kind==='tile'&&item.placement){
+      if(state.view==='plan')drawPlacement(item.placement,false,true,item.error);
+      else {const p=item.placement,d=dimensions(item.tile,p.rotation),points=boxCorners({min:[p.x,p.y,p.z],max:[p.x+d.x/16,p.y+d.y/8,p.z+d.z/16]}).map(v=>isoCamera.project(v));
+        ctx.save();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.beginPath();for(const [a,b] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]){ctx.moveTo(points[a].x,points[a].y);ctx.lineTo(points[b].x,points[b].y);}ctx.stroke();ctx.restore();
+      }
+    }else if(item.brush?.kind==='gimmick'&&item.position){
+      const w=worldPoint(item.position,item.tile,item.placement),at=state.view==='iso'?isoCamera.project([w.x/16,w.y/8,w.z/16]):(()=>{const s=screen(w.x/16,w.z/16);return {x:s.x,y:s.z};})();
+      ctx.save();ctx.strokeStyle=color;ctx.fillStyle='#142128cc';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(at.x,at.y,15,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=color;ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(KINDS[item.brush.id].icon,at.x,at.y);ctx.restore();
+    }
+  }
+  function clearPalette(){paletteBrush=null;paletteDrop=null;delete canvas.dataset.dropState;callbacks.dropPreview?.(null);draw();}
+  function previewDrop(e){
+    if(!paletteBrush||!e.dataTransfer?.types.includes(PALETTE_MIME))return null;
+    const pos=xy(e),state=get(),point=state.view==='iso'?pointOnFloor(camera(),pos.x,pos.y,state.floor):{...world(pos.x,pos.y),y:state.floor};
+    const next=palettePlacement(state.project,paletteBrush,point,state.activeRoomId);
+    paletteDrop=next;canvas.dataset.dropState=next.error?'invalid':'valid';
+    const name=paletteBrush.kind==='tile'?next.tile?.name:KINDS[paletteBrush.id]?.label;
+    callbacks.dropPreview?.({valid:!next.error,message:next.error||`${name} · ${state.floor>=0?state.floor+1+'층':'지하 '+Math.abs(state.floor)+'층'} · 놓아서 배치`});requestDraw();return next;
+  }
+  canvas.addEventListener('dragover',e=>{const item=previewDrop(e);if(!item)return;e.preventDefault();e.dataTransfer.dropEffect=item.error?'none':'copy';});
+  canvas.addEventListener('dragenter',e=>{if(paletteBrush&&e.dataTransfer?.types.includes(PALETTE_MIME))e.preventDefault();});
+  canvas.addEventListener('dragleave',()=>{paletteDrop=null;delete canvas.dataset.dropState;callbacks.dropPreview?.(null);requestDraw();});
+  canvas.addEventListener('drop',e=>{const item=previewDrop(e);if(!item)return;e.preventDefault();clearPalette();if(item.error){callbacks.notify?.(item.error,true);return;}callbacks.drop?.(item);});
+  document.addEventListener('dragend',clearPalette);
   function hitTile(x,z){return [...get().project.placements].reverse().find(p=>{if(!active(p))return false;const t=tileOf(get().project,p),d=dimensions(t,p.rotation);return x>=p.x&&x<p.x+d.x/16&&z>=p.z&&z<p.z+d.z/16;});}
   function hitGimmick(x,y){const state=get();return [...state.project.gimmicks].reverse().find(g=>{const p=gimmickPosition(g);if(isScan(g.type)||!p||Math.floor(p.y/8)!==state.floor)return false;const s=screen(p.x/16,p.z/16);return Math.hypot(s.x-x,s.z-y)<13;});}
   const xy=e=>{const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};};
@@ -212,5 +241,5 @@ export function createMap(canvas,get,callbacks){
     else pan={x:point.x-before.x*next,y:point.y-before.z*next};scale=next;draw();},{passive:false});
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drag?.scan){drag=null;canvas.style.cursor='';draw();}if(e.code==='Space'&&e.target===canvas){space=true;e.preventDefault();}});window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;drag=null;});
   const observer=new ResizeObserver(()=>{const r=canvas.getBoundingClientRect();width=r.width;height=r.height;const ratio=window.devicePixelRatio||1;canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);if(!initialized){initialized=true;fit();}else draw();});observer.observe(canvas);
-  return {draw,fit,projectPoint(point){const s=screen(point.x/16,point.z/16);return {x:s.x,y:s.z};},rotateCamera(delta){orbit.azimuth=(orbit.azimuth+delta+360)%360;draw();},resetCamera(){orbit.azimuth=45;orbit.elevation=30;fit();},cameraState:()=>({azimuth:orbit.azimuth,elevation:orbit.elevation,offset:{...orbit.offset}}),zoom(factor){scale=Math.max(get().view==='iso'?8:20,Math.min(get().view==='iso'?130:1024,scale*factor));draw();},focus(placement,detail=false){const t=tileOf(get().project,placement);if(!t)return;const d=dimensions(t,placement.rotation);if(detail)scale=Math.min(800,Math.max(130,(Math.min(width,height)-160)*16/Math.max(d.x,d.z)));pan={x:width/2-(placement.x+d.x/32)*scale,y:height/2-(placement.z+d.z/32)*scale};if(get().view==='iso'){const c=camera(boxes(),scale),point=c.project([placement.x+d.x/32,placement.y+d.y/16,placement.z+d.z/32]);orbit.offset.x+=width/2-point.x;orbit.offset.y+=height/2-point.y;}draw();},destroy(){destroyed=true;if(drawRequest!==null)cancelAnimationFrame(drawRequest);observer.disconnect();isoRenderer?.destroy();}};
+  return {draw,fit,beginPaletteDrag(brush){paletteBrush={...brush};paletteDrop=null;drag=null;},endPaletteDrag:clearPalette,projectPoint(point){if(get().view==='iso')return camera().project([point.x/16,(point.y??get().floor*8)/8,point.z/16]);const s=screen(point.x/16,point.z/16);return {x:s.x,y:s.z};},rotateCamera(delta){orbit.azimuth=(orbit.azimuth+delta+360)%360;draw();},resetCamera(){orbit.azimuth=45;orbit.elevation=30;fit();},cameraState:()=>({azimuth:orbit.azimuth,elevation:orbit.elevation,offset:{...orbit.offset}}),zoom(factor){scale=Math.max(get().view==='iso'?8:20,Math.min(get().view==='iso'?130:1024,scale*factor));draw();},focus(placement,detail=false){const t=tileOf(get().project,placement);if(!t)return;const d=dimensions(t,placement.rotation);if(detail)scale=Math.min(800,Math.max(130,(Math.min(width,height)-160)*16/Math.max(d.x,d.z)));pan={x:width/2-(placement.x+d.x/32)*scale,y:height/2-(placement.z+d.z/32)*scale};if(get().view==='iso'){const c=camera(boxes(),scale),point=c.project([placement.x+d.x/32,placement.y+d.y/16,placement.z+d.z/32]);orbit.offset.x+=width/2-point.x;orbit.offset.y+=height/2-point.y;}draw();},destroy(){document.removeEventListener('dragend',clearPalette);destroyed=true;if(drawRequest!==null)cancelAnimationFrame(drawRequest);observer.disconnect();isoRenderer?.destroy();}};
 }

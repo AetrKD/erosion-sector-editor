@@ -17,6 +17,13 @@ export function createCamera({width,height,scale,target,azimuth,elevation,offset
     ray(x,y){const sx=(x-center.x)/scale,sy=(y-center.y)/scale;return {origin:target.map((v,i)=>v+right[i]*sx+down[i]*sy),direction:toward};}
   };
 }
+/** Intersect the cursor ray with the explicitly selected eight-block floor plane. */
+export function pointOnFloor(camera,x,y,floor){
+  const {origin,direction}=camera.ray(x,y);
+  if(Math.abs(direction[1])<1e-8)return null;
+  const t=(floor-origin[1])/direction[1];
+  return {x:origin[0]+direction[0]*t,y:floor,z:origin[2]+direction[2]*t};
+}
 export function pickBox(boxes,camera,x,y){
   const {origin,direction}=camera.ray(x,y);let hit=null,nearest=-Infinity;
   for(const box of boxes){

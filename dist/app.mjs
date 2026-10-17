@@ -2,6 +2,7 @@ import {CELL,FACES,KINDS,uid,clone,tileOf,dimensions,bounds,placementError,portE
 import {inspectStructure,restoreProject,loadTileFolder} from './nbt.mjs';
 import {packStage,unpackStage} from './stage-file.mjs';
 import {createMap} from './map.mjs';
+import {PALETTE_MIME} from './palette-placement.mjs';
 import {nextAreaCode,areaTree,areaLabel,placementLabel} from './hierarchy.mjs';
 import {createLogicEditor} from './logic-editor.mjs';
 import {createMissionEditor,gimmickSettings,gimmickDefaults,GIMMICK_DESCRIPTIONS} from './mission-editor.mjs';
@@ -20,6 +21,8 @@ const directionName={north:'북쪽',east:'동쪽',south:'남쪽',west:'서쪽'};
 const map=createMap($('map'),()=>({...ui,project}),{
   select:selection=>{ui.selection=selection;const p=selection?.kind==='placement'&&project.placements.find(p=>p.id===selection.id);if(p){ui.activeRoomId=p.roomId;closedAreas.delete(p.roomId);}if(ui.tab==='rooms')renderLibrary();renderInspector();map.draw();},
   place:placeTile,move:moveTile,gimmick:placeGimmick,notify:toast,
+  drop:item=>{const ok=item.brush.kind==='tile'?placeTile(item.placement.x,item.placement.y,item.placement.z,item.brush):placeGimmick(item.placement,item.position,item.brush.id);if(ok){ui.mode='select';ui.brush=null;renderAll();}},
+  dropPreview:state=>{const el=$('paletteDropStatus');el.hidden=!state;if(state){el.textContent=state.message;el.classList.toggle('invalid',!state.valid);}},
   scan:(id,index,patch)=>commit(p=>updateScanStep(p.gimmicks.find(g=>g.id===id),index,patch)),
   cancel:()=>{ui.mode='select';ui.brush=null;renderAll();},
   zoom:value=>$('zoomLabel').textContent=value+'%',
@@ -88,7 +91,7 @@ function renderLibrary(){
     $('libraryContent').innerHTML=`<button class="button full" data-action="import-nbt">↑ Create 설계도 가져오기</button><div style="height:12px"></div><input class="search" id="tileSearch" placeholder="타일 이름 검색…" aria-label="타일 이름 검색" value="${esc(ui.search)}"><div class="section-label"><span>타일 라이브러리</span><span>${project.tiles.length}</span></div><div id="tileList"></div><button class="subtle-button" data-action="new-tile">＋ 설계용 타일 만들기</button>`;
     renderTileList();
   }else if(ui.tab==='gimmicks'){
-    $('libraryContent').innerHTML=`<div class="section-label"><span>기믹 배치</span><span>${project.gimmicks.length}</span></div><small>기믹을 고른 뒤 배치도에서 타일 내부를 클릭하세요.</small><div style="height:14px"></div>${Object.entries(KINDS).filter(([type])=>type!=='terminal').map(([type,kind])=>`<button class="gimmick-card ${ui.brush?.kind==='gimmick'&&ui.brush.id===type?'selected':''}" data-gimmick-type="${type}"><span class="gimmick-icon" style="color:${kind.color}">${kind.icon}</span><div><strong>${kind.label}</strong><small>${GIMMICK_DESCRIPTIONS[type]}</small></div></button>`).join('')}<div class="divider"></div><div class="section-label">배치된 기믹</div>${project.gimmicks.map(g=>`<button class="room-card ${ui.selection?.id===g.id?'selected':''}" data-select-kind="gimmick" data-select-id="${esc(g.id)}"><span style="color:${KINDS[g.type].color}">${KINDS[g.type].icon}</span><div><strong>${esc(g.name)}</strong><small>${esc(KINDS[g.type].label)}</small></div></button>`).join('')}`;
+    $('libraryContent').innerHTML=`<div class="section-label"><span>기믹 배치</span><span>${project.gimmicks.length}</span></div><small>기믹을 타일 안으로 끌어 놓거나, 고른 뒤 배치도를 클릭하세요.</small><div style="height:14px"></div>${Object.entries(KINDS).filter(([type])=>type!=='terminal').map(([type,kind])=>`<button class="gimmick-card ${ui.brush?.kind==='gimmick'&&ui.brush.id===type?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-gimmick-type="${type}"><span class="gimmick-icon" style="color:${kind.color}">${kind.icon}</span><div><strong>${kind.label}</strong><small>${GIMMICK_DESCRIPTIONS[type]}</small></div></button>`).join('')}<div class="divider"></div><div class="section-label">배치된 기믹</div>${project.gimmicks.map(g=>`<button class="room-card ${ui.selection?.id===g.id?'selected':''}" data-select-kind="gimmick" data-select-id="${esc(g.id)}"><span style="color:${KINDS[g.type].color}">${KINDS[g.type].icon}</span><div><strong>${esc(g.name)}</strong><small>${esc(KINDS[g.type].label)}</small></div></button>`).join('')}`;
   }else if(ui.tab==='events'){
     $('libraryContent').innerHTML=logicEditor.library();
   }else{
@@ -112,7 +115,7 @@ function renderTileList(){
   if(!$('tileList'))return;
   const tiles=project.tiles.filter(t=>(t.name+' '+t.category).toLowerCase().includes(ui.search.toLowerCase()));
   const groups=new Map();for(const tile of tiles){const folder=tile.asset?.reference?.split('/').slice(0,-1).join('/')||'설계용 · 미연결';if(!groups.has(folder))groups.set(folder,[]);groups.get(folder).push(tile);}
-  const card=tile=>`<button class="tile-card ${ui.brush?.id===tile.id?'selected':''}" data-library-tile="${esc(tile.id)}"><div class="tile-preview"><span class="tile-kind">${esc(tile.category)}</span><span class="tile-status ${tile.asset?'real':''}">${tile.asset?'NBT 연결됨':'설계용'}</span>${tileThumbnail(tile)}</div><div class="tile-info"><div><strong>${esc(tile.name)}</strong><small>${tile.size.x} × ${tile.size.z} × 높이 ${tile.size.y} · 문 ${tile.ports.length}</small></div><span class="tile-dots">↗</span></div></button>`;
+  const card=tile=>`<button class="tile-card ${ui.brush?.id===tile.id?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-library-tile="${esc(tile.id)}"><div class="tile-preview"><span class="tile-kind">${esc(tile.category)}</span><span class="tile-status ${tile.asset?'real':''}">${tile.asset?'NBT 연결됨':'설계용'}</span>${tileThumbnail(tile)}</div><div class="tile-info"><div><strong>${esc(tile.name)}</strong><small>${tile.size.x} × ${tile.size.z} × 높이 ${tile.size.y} · 문 ${tile.ports.length}</small></div><span class="tile-dots">↗</span></div></button>`;
   $('tileList').innerHTML=[...groups].map(([folder,items])=>`<details class="tileset-folder" open><summary>▰ ${esc(folder)} <span>${items.length}</span></summary>${items.map(card).join('')}</details>`).join('')||'<div class="empty-state">검색 결과가 없습니다.</div>';
 }
 function renderFloors(){
@@ -172,18 +175,19 @@ function renderInspector(){
   }
   if(ui.returnProgram&&project.programs.some(p=>p.id===ui.returnProgram))container.insertAdjacentHTML('afterbegin','<button class="button full" data-action="return-event">← 보고 있던 이벤트로 돌아가기</button>');
 }
-function placeTile(x,y,z){
-  if(ui.brush?.kind!=='tile'){toast('라이브러리에서 타일을 먼저 선택하세요.');return;}
-  if(ui.brush.sourceId){let selected;const sourceId=ui.brush.sourceId;if(commit(p=>{selected=duplicatePlacement(p,sourceId,{x,y,z,rotation:ui.brush.rotation||0});},'타일과 기믹·관련 이벤트를 복제했습니다. 외부 대상 참조는 유지합니다.')){ui.selection={kind:'placement',id:selected.id};ui.brush=null;ui.mode='select';renderAll();}return;}
-  const p={id:uid('placement'),tileId:ui.brush.id,x,y,z,rotation:ui.brush.rotation||0,roomId:ui.activeRoomId||project.rooms[0]?.id||'',name:''};
+function placeTile(x,y,z,brush=ui.brush){
+  if(brush?.kind!=='tile'){toast('라이브러리에서 타일을 먼저 선택하세요.');return;}
+  if(brush.sourceId){let selected;const sourceId=brush.sourceId;if(commit(p=>{selected=duplicatePlacement(p,sourceId,{x,y,z,rotation:brush.rotation||0});},'타일과 기믹·관련 이벤트를 복제했습니다. 외부 대상 참조는 유지합니다.')){ui.selection={kind:'placement',id:selected.id};ui.brush=null;ui.mode='select';renderAll();}return;}
+  const p={id:uid('placement'),tileId:brush.id,x,y,z,rotation:brush.rotation||0,roomId:ui.activeRoomId||project.rooms[0]?.id||'',name:''};
   const error=placementError(project,p);if(error){toast(error,true);return;}
-  ui.selection={kind:'placement',id:p.id};commit(pj=>pj.placements.push(p));
+  ui.selection={kind:'placement',id:p.id};return commit(pj=>pj.placements.push(p));
 }
 function moveTile(p){const old=project.placements.find(q=>q.id===p.id);if(old&&old.roomId!==p.roomId)p={...p,areaCode:nextAreaCode(project,p.roomId,p.id)};const error=placementError(project,p);if(error){toast(error,true);return false;}return commit(pj=>{pj.placements[pj.placements.findIndex(q=>q.id===p.id)]=p;});}
-function placeGimmick(placement,position){
-  const type=ui.brush.id,g={id:uid('gimmick'),type,name:KINDS[type].label,placementId:placement.id,
+function placeGimmick(placement,position,type=ui.brush?.id){
+  if(!KINDS[type])return false;
+  const g={id:uid('gimmick'),type,name:KINDS[type].label,placementId:placement.id,
     position:Object.fromEntries(Object.entries(position).map(([k,v])=>[k,Math.floor(v*2)/2])),settings:gimmickDefaults(type)};
-  ui.selection={kind:'gimmick',id:g.id};ui.mode='select';ui.brush=null;commit(pj=>pj.gimmicks.push(g));
+  ui.selection={kind:'gimmick',id:g.id};ui.mode='select';ui.brush=null;return commit(pj=>pj.gimmicks.push(g));
 }
 function selectTarget(kind,id){if(kind==='objective'){missionEditor.show();return;}if(kind==='program'){logicEditor.choose(id);return;}ui.workspace='map';if(kind==='door'){const port=connections(project).ports.find(p=>p.key===id),p=port&&project.placements.find(p=>p.id===port.placementId);if(p){ui.floor=Math.floor(port.y/8);map.focus(p);}}if(kind==='room')ui.activeRoomId=id;ui.selection={kind,id};ui.mode='select';if(kind==='placement'){const p=project.placements.find(p=>p.id===id);if(p){ui.activeRoomId=p.roomId;closedAreas.delete(p.roomId);ui.floor=p.y;map.focus(p);}}else if(kind==='gimmick'){const g=project.gimmicks.find(g=>g.id===id),p=project.placements.find(p=>p.id===g?.placementId),t=p&&tileOf(project,p);if(t){ui.floor=Math.floor(worldPoint(g.position,t,p).y/8);map.focus(p);}}renderAll();if(innerWidth<950)$('inspectorPanel').classList.add('visible');}
 function projectDetailsDialog(){modal('스테이지 설정',`<div class="field-row">${field('작성자','author',project.author,'text','maxlength="160" placeholder="제작자 또는 제작 팀"')}${field('스테이지 난이도','difficulty',project.difficulty,'text','maxlength="80" placeholder="예: 튜토리얼, 쉬움, 보통, 어려움"')}</div>${field('스테이지 이름','name',project.name,'text','required maxlength="80"')}<div class="field-row">${field('챕터 ID','chapterId',project.chapter.id,'text','maxlength="160"')}${field('챕터 이름','chapterName',project.chapter.name,'text','maxlength="160"')}</div><label class="field">챕터 설명<textarea name="chapterDescription" aria-label="챕터 설명" maxlength="3000">${esc(project.chapter.description)}</textarea></label>${field('미션 코드','missionCode',project.missionCode,'text','maxlength="160" placeholder="예: A1"')}<label class="field">임무 설명<textarea name="description" aria-label="임무 설명" maxlength="3000">${esc(project.description)}</textarea></label><div class="field-row">${field('최소 인원','minPlayers',project.minPlayers,'number','required min="1" max="16"')}${field('최대 인원','maxPlayers',project.maxPlayers,'number','required min="1" max="16"')}</div>`,data=>commit(p=>{p.author=data.get('author').trim();p.difficulty=data.get('difficulty').trim();p.name=data.get('name').trim();p.chapter={id:data.get('chapterId').trim(),name:data.get('chapterName').trim(),description:data.get('chapterDescription')};p.missionCode=data.get('missionCode').trim();p.description=data.get('description');p.minPlayers=Number(data.get('minPlayers'));p.maxPlayers=Number(data.get('maxPlayers'));}));}
@@ -289,6 +293,16 @@ document.addEventListener('click',event=>{
 });
 document.addEventListener('input',event=>{if(event.target.id==='tileSearch'){ui.search=event.target.value;renderTileList();}if(event.target.id==='areaSearch'){ui.areaSearch=event.target.value;renderAreaTree();}});
 document.addEventListener('toggle',event=>{if(!event.target.matches?.('.area-folder'))return;const id=event.target.dataset.folder;if(event.target.open)closedAreas.delete(id);else closedAreas.add(id);},true);
+let paletteSource=null;
+function finishPaletteDrag(){if(!paletteSource)return;paletteSource.classList.remove('palette-dragging');paletteSource=null;map.endPaletteDrag();renderAll();}
+document.addEventListener('dragstart',event=>{
+  const source=event.target.closest('[data-library-tile],[data-gimmick-type]');if(!source)return;
+  const brush=source.dataset.libraryTile?{kind:'tile',id:source.dataset.libraryTile,rotation:ui.brush?.kind==='tile'&&ui.brush.id===source.dataset.libraryTile?ui.brush.rotation||0:0}:{kind:'gimmick',id:source.dataset.gimmickType};
+  event.dataTransfer.setData(PALETTE_MIME,JSON.stringify(brush));event.dataTransfer.effectAllowed='copy';paletteSource=source;source.classList.add('palette-dragging');
+  ui.workspace='map';$('canvasWrap').hidden=false;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
+});
+document.addEventListener('dragend',finishPaletteDrag);
+document.addEventListener('drop',finishPaletteDrag);
 document.addEventListener('dragstart',event=>{const row=event.target.closest('[data-tree-placement]');if(!row)return;draggedArea=row.dataset.treePlacement;event.dataTransfer.setData('application/x-erosion-area',draggedArea);event.dataTransfer.effectAllowed='move';});
 document.addEventListener('dragover',event=>{if(draggedArea&&event.target.closest('.area-folder')){event.preventDefault();event.dataTransfer.dropEffect='move';}});
 document.addEventListener('drop',event=>{const room=event.target.closest('.area-folder')?.dataset.folder;if(!draggedArea||!room)return;event.preventDefault();const p=project.placements.find(p=>p.id===draggedArea);draggedArea=null;if(p&&p.roomId!==room){closedAreas.delete(room);ui.activeRoomId=room;moveTile({...p,roomId:room});}});
