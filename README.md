@@ -1,9 +1,12 @@
+0.5.0: 전송 장치 블록 없이 진입 좌표로 즉시 투하하고, 일반·탈출 스캔을 타일에 배치합니다. 반경·인원·시간·연속 단계·안전한 랜덤 위치를 편집할 수 있습니다.
+
 # Erosion Sector Stage Editor
 
 타일 설계도를 연결하고 구역·기믹·임무 목표·블록 이벤트를 구성하는 로컬 파일 기반 웹 앱입니다.
 
 - [제작·실행 가이드](docs/stage-runtime.ko.md)
 - [제작용 콘텐츠와 제거 항목](docs/content.ko.md)
+- [원형 스캔·랜덤 위치·연속 단계](docs/scans.ko.md)
 - [이벤트 블록 계약](docs/event-blocks.ko.md)
 - [보급 팩과 예비탄 설정](docs/supply.ko.md)
 - [체력·스태미너와 HUD](docs/vitals.ko.md)

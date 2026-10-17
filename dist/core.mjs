@@ -15,6 +15,7 @@ export const KINDS = {
   wave:{label:'적 출현',icon:'◆',color:'#ed8e93'},
   supply:{label:'보급 지점',icon:'+',color:'#bcb2f5'},
   extraction:{label:'탈출 지점',icon:'↪',color:'#9be2bd'},
+  scan:{label:'원형 스캔',icon:'◎',color:'#52f8cf'},
   trigger:{label:'진입 트리거',icon:'◎',color:'#f4d67b'},
   cargo:{label:'화물 상자',icon:'▣',color:'#c6a077'},
   keycard:{label:'ID 키카드',icon:'▰',color:'#a8d4c6'},
@@ -169,7 +170,7 @@ export function validate(project) {
     if(unreachable.length) add('warning',`시작점에서 문 연결로 도달할 수 없는 타일이 ${unreachable.length}개입니다.`,{kind:'placement',id:unreachable[0].id});
   }
   issues.push(...programIssues(project),...missionIssues(project));
-  add('info','모드 0.4.0 이상에서 실행할 수 있습니다. 실제 타일 NBT는 외부 tile 폴더에서 읽습니다.');
+  add('info','스캔은 모드 0.5.0 이상에서 실행합니다. 실제 타일 NBT는 외부 assets/tile 폴더에서 읽습니다.');
   return issues;
 }
 export function exportStage(project) {
@@ -201,7 +202,7 @@ export function demoProject() {
     {id:'g2',type:'alarm',name:'보안 경보',placementId:'p4',position:{x:8,y:1,z:8},settings:{duration:45}},
     {id:'g3',type:'wave',name:'연구실 방어전',placementId:'p5',position:{x:12,y:1,z:8},settings:{count:12,entity:'minecraft:zombie'}},
     {id:'g4',type:'supply',name:'제한 보급',placementId:'p5',position:{x:23,y:1,z:8},settings:{count:3}},
-    {id:'g5',type:'terminal',name:'전력 복구',placementId:'p7',position:{x:8,y:1,z:8},settings:{duration:15}},
+    {id:'g5',type:'scan',name:'전력 복구 스캔',placementId:'p7',position:{x:8,y:1,z:8},settings:{duration:15,radius:2.5,requiredPlayers:'all',positionMode:'fixed',steps:[]}},
     {id:'g6',type:'extraction',name:'복귀 집결 지점',placementId:'p1',position:{x:11,y:1,z:8},settings:{duration:10}}
   ];
   return normalizeAreaCodes({format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',

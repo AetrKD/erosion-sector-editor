@@ -1,4 +1,5 @@
-export const OBJECTIVE_TYPES={command:'터미널 명령어 입력',visit:'타일 방문',collect:'ID 키카드 획득',pickup:'화물 들어 올리기',deliver:'화물을 탈출 지점으로 운반',manual:'이벤트로 완료'};
+import {assertScans,scanIssues} from './scan.mjs';
+export const OBJECTIVE_TYPES={scan:'스캔 완료',command:'터미널 명령어 입력',visit:'타일 방문',collect:'ID 키카드 획득',pickup:'화물 들어 올리기',deliver:'화물을 탈출 지점으로 운반',manual:'이벤트로 완료'};
 export function normalizeMission(p){
   p.missionMode??='extract';p.objectives??=[];
   if(!['extract','objectives'].includes(p.missionMode)||!Array.isArray(p.objectives)||p.objectives.length>200)throw new Error('임무 목표 설정이 올바르지 않습니다.');
@@ -11,9 +12,9 @@ export function normalizeMission(p){
     for(const key of ['commands','spawnTiles'])if(s[key]!==undefined&&(!Array.isArray(s[key])||s[key].length>(key==='commands'?64:1000)||s[key].some(v=>typeof v!=='string'||!v.trim()||v.length>(key==='commands'?120:160))))throw new Error(g.name+': 명령어 또는 생성 타일 목록을 확인하세요.');
     for(const key of ['entity','containerId','keyId','objectKey','wakeRoomId','mode','spawnRule','finishRule'])if(s[key]!==undefined&&(typeof s[key]!=='string'||s[key].length>160))throw new Error(g.name+': 장치 설정 문자열을 확인하세요.');
     for(const key of ['duration','radius','count','distance','waves','waveInterval'])if(s[key]!==undefined&&(!Number.isFinite(s[key])||Math.abs(s[key])>3600))throw new Error(g.name+': 수량·시간·거리 설정을 확인하세요.');
-  }return p;
+  }assertScans(p);return p;
 }
-export function objectiveTargets(p,type){return type==='visit'?p.placements.map(q=>[q.id,`${p.rooms.find(r=>r.id===q.roomId)?.code||'?'} / ${q.areaCode||'?'} · ${p.tiles.find(t=>t.id===q.tileId)?.name||'타일'}`]):type==='manual'?[]:p.gimmicks.filter(g=>g.type===({command:'terminal',collect:'keycard',pickup:'cargo',deliver:'cargo'}[type])).map(g=>[g.id,g.name]);}
+export function objectiveTargets(p,type){return type==='visit'?p.placements.map(q=>[q.id,`${p.rooms.find(r=>r.id===q.roomId)?.code||'?'} / ${q.areaCode||'?'} · ${p.tiles.find(t=>t.id===q.tileId)?.name||'타일'}`]):type==='manual'?[]:p.gimmicks.filter(g=>g.type===({command:'terminal',collect:'keycard',pickup:'cargo',deliver:'cargo',scan:'scan'}[type])).map(g=>[g.id,g.name]);}
 export function missionIssues(p){
   const issues=[],add=(message,target=null)=>issues.push({severity:'error',message,target});
   if(p.missionMode==='objectives'&&!(p.objectives||[]).some(o=>o.required))add('목표 달성 임무에는 필수 목표를 하나 이상 지정하세요.');
@@ -25,7 +26,7 @@ export function missionIssues(p){
       if(s.wakeRoomId&&!p.rooms.some(r=>r.id===s.wakeRoomId))add(`${g.name}: 깨울 구역이 없습니다.`,{kind:'gimmick',id:g.id});
     }
     if(g.type==='keycard'&&s.containerId&&!p.gimmicks.some(q=>q.id===s.containerId&&q.type==='supply'))add(`${g.name}: 키카드를 넣을 보급 컨테이너가 없습니다.`,{kind:'gimmick',id:g.id});
-  }return issues;
+  }return [...issues,...scanIssues(p)];
 }
 export function runtimeIssues(p,issues=[]){
   const out=[...issues.filter(i=>i.severity==='error')];

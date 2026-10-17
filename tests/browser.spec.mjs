@@ -170,7 +170,7 @@ test('NBT occupancy permits overlapping air volumes, blocks a real collision, an
   expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).placements).toHaveLength(9);expect(errors).toEqual([]);
 });
 test('gimmicks can be placed and connected through an event',async({page})=>{
-  await page.locator('[data-tab=gimmicks]').click();await page.locator('[data-gimmick-type=terminal]').click();
+  await page.locator('[data-tab=gimmicks]').click();await page.locator('[data-gimmick-type=scan]').click();
   const box=await page.locator('#map').boundingBox();
   const scale=Math.max(22,Math.min(90,(box.width-130)/8,(box.height-155)/3));
   const panX=box.width/2-1.5*scale,panY=box.height/2-1*scale-5;

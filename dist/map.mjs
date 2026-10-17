@@ -1,3 +1,4 @@
+import {isScan,scanSteps} from './scan.mjs';
 import {dimensions,worldPoint,tileOf,connections,placementError,KINDS,inversePoint} from './core.mjs';
 import {occupancy} from './occupancy.mjs';
 import {boxCorners,createCamera,pickBox,sceneTarget,createIsoRenderer,drawIsoFallback} from './iso.mjs';
@@ -105,6 +106,14 @@ export function createMap(canvas,get,callbacks){
   function gimmickPosition(g){const state=get(),p=state.project.placements.find(q=>q.id===g.placementId),t=p&&tileOf(state.project,p);return t?worldPoint(g.position,t,p):null;}
   function drawGimmicks(){
     const state=get();
+    for(const g of state.project.gimmicks.filter(g=>isScan(g.type)))for(const [i,step] of scanSteps(g).entries()){
+      const tilePlacement=state.project.placements.find(q=>q.id===step.placementId),tile=tilePlacement&&tileOf(state.project,tilePlacement);if(!tile)continue;
+      const world=worldPoint({x:step.position.x+.5,y:step.position.y,z:step.position.z+.5},tile,tilePlacement);if(Math.floor(world.y/8)!==state.floor)continue;
+      const at=screen(world.x/16,world.z/16),radius=(step.radius??2.5)*scale/16;
+      ctx.setLineDash(step.positionMode==='random'?[4,4]:[]);ctx.strokeStyle=i?'#7daeb0':'#52f8cf';ctx.fillStyle='#52f8cf14';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(at.x,at.z,radius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      if(state.selection?.id===g.id){ctx.fillStyle='#d8f9f1';ctx.font='10px "Malgun Gothic",sans-serif';ctx.fillText(String(i+1),at.x+radius+3,at.z);}
+    }
     for(const g of state.project.gimmicks){const pos=gimmickPosition(g);if(!pos||Math.floor(pos.y/8)!==state.floor)continue;
       const p=screen(pos.x/16,pos.z/16),kind=KINDS[g.type],selected=state.selection?.kind==='gimmick'&&state.selection.id===g.id;
       const r=selected?11:9;ctx.fillStyle='#16212b';ctx.strokeStyle=kind.color;ctx.lineWidth=selected?2:1;ctx.beginPath();ctx.arc(p.x,p.z,r,0,Math.PI*2);ctx.fill();ctx.stroke();

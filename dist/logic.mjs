@@ -10,6 +10,7 @@ export const BLOCKS=Object.freeze({
   'when.tile':definition('trigger','하위 구역에 진입하면',{placementId:target('진입 타일','placement')}),
   'when.interact':definition('trigger','기믹과 상호작용하면',{gimmickId:target('기믹','gimmick')}),
   'when.complete':definition('trigger','기믹의 목표가 완료되면',{gimmickId:target('완료 기믹','gimmick')}),
+  'when.scan':definition('trigger','스캔 상태가 바뀌면',{gimmickId:target('스캔','scan'),state:choice('스캔 상태','complete',[['start','시작'],['step','다음 단계로 진행'],['complete','전체 완료']])}),
   'when.alarm':definition('trigger','경보가 끝나면',{gimmickId:target('경보','alarm')}),
   'when.door':definition('trigger','문의 상태가 바뀌면',{doorId:target('문 · 이쪽 면','door'),state:choice('상태','open',[['open','열림'],['closed','닫힘']])}),
   'when.signal':definition('trigger','신호를 받으면',{signal:text('신호 이름','전력_복구',80)}),
@@ -36,6 +37,7 @@ export const BLOCKS=Object.freeze({
   'do.tileLights':definition('action','타일 조명 제어',{placementId:target('조명 타일','placement'),mode:choice('조명 동작','off',[['on','켜기'],['off','끄기'],['blink','깜빡이기']]),interval:number('깜빡임 간격 · 초',.5,.05,60)}),
   'do.door':definition('action','문 제어',{doorId:target('문 · 이쪽 면','door'),action:choice('문 동작','unlock',[['open','열기'],['close','닫기'],['unlock','이쪽 면 잠금 해제'],['lock','이쪽 면 잠그기']])}),
   'do.gimmick':definition('action','기믹 제어',{gimmickId:target('대상 기믹','gimmick'),action:choice('기믹 동작','activate',[['activate','활성화'],['deactivate','비활성화'],['complete','목표 완료 처리']])}),
+  'do.scan':definition('action','스캔 제어',{gimmickId:target('대상 스캔','scan'),action:choice('스캔 동작','start',[['start','시작'],['pause','일시정지'],['resume','다시 진행'],['reset','초기화 후 시작'],['stop','종료']])}),
   'do.alarm':definition('action','경보 시작',{gimmickId:target('경보 장치','alarm')}),
   'do.objective':definition('action','임무 목표 완료 처리',{objectiveId:target('임무 목표','objective')}),
   'do.wave':definition('action','적 출현 시작',{gimmickId:target('적 출현 지점','wave')}),
@@ -48,6 +50,7 @@ export const CATEGORY_LABELS={trigger:'발생',condition:'조건',control:'흐�
 const id=prefix=>prefix+'_'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
 export function accepts(slot,type){const category=BLOCKS[type]?.category;return slot==='statement'?category==='action'||category==='control':slot===category;}
 export function targetOptions(project,kind){
+  if(kind==='scan')return project.gimmicks.filter(g=>g.type==='scan'||g.type==='extraction').map(g=>[g.id,g.name]);
   if(kind==='objective')return (project.objectives||[]).map(o=>[o.id,o.name]);
   if(kind==='room')return project.rooms.map(r=>[r.id,`${r.code}구역 · ${r.name}`]);
   if(kind==='placement')return project.placements.map(p=>[p.id,`${project.rooms.find(r=>r.id===p.roomId)?.code||'?'} / ${p.areaCode||'?'}구역 (${project.tiles.find(t=>t.id===p.tileId)?.name||'타일'})`]);

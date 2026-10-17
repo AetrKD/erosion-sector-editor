@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-17
 
+0.5.0 스캔은 기존 IrisApi·CapturedRenderingState 카메라 연동을 재사용합니다. AFTER_LEVEL에서 ES 어둠 처리 뒤에 전용 POSITION_COLOR 셰이더로 주 화면에 발광 원을 그리며, 공유 깊이와 깊이 테스트를 유지하고 GPU의 깊이·블렌드·컬링·프로그램·프레임버퍼 상태를 복원합니다. 초기 일반 RenderType 경로가 셰이더 환경에서 어둡게 사라지는 것을 실제 화면으로 확인해 독립 합성으로 수정했습니다. 블록·엔티티·광원 갱신은 추가하지 않습니다. 서버가 원 내부·±1블록 높이·벽 차폐·참가 인원을 판정하며 CarryOn이나 TaCZ의 코드를 변경하지 않습니다.
+
 0.4.28은 NeoForge 21.1.259의 CreativeModeTab.Builder.withTabsBefore가 지정한 탭 뒤에 배치하는 순서 규칙을 원본 소스로 확인하고 ES 건축 다음에 ES 아이템이 오도록 등록합니다. 자동 클라이언트 검사도 원본 크리에이티브 페이지 버튼으로 두 탭에 접근해 표시 목록과 3D 아이콘을 확인합니다. 장비 선택기는 기존 ES의 KeyInteractable·BlockInteractionPayload와 장비 선택 화면을 재사용하며, TaCZ·외부 모드 파일을 수정하지 않습니다.
 
 0.4.27의 블록 아이콘은 설치된 Minecraft 1.21.1 원본 ssets/minecraft/models/block/block.json의 GUI 회전·배율·측면 조명 값을 ES 아이템 모델에 적용합니다. 블록 배치 모델이나 외부 모드 파일을 변경하지 않습니다. 숨긴 전용 클라이언트에서 실제 크리에이티브 화면과 여섯 블록의 베이크된 모델을 확인합니다.
