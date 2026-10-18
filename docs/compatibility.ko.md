@@ -119,3 +119,17 @@ ES는 UV가 원본 스프라이트 범위를 벗어났을 때 NeoForge `TextureA
 ### 장비 카드 가로 폭 (0.5.12)
 
 ES 자체 `EquipmentHudLayout`의 고정 폭을 176에서 128 논리 픽셀로 줄였습니다. 기본 정수 배율 2에서는 실제 화면 폭이 352에서 256픽셀로 줄어듭니다. 이름 영역의 좌우 여백을 줄이고 선택 화살표 공간을 유지합니다. 폰트 정수 배율·카드 높이·개별 배경·오른쪽 끝 고정·이름 말줄임과 외부 모드 연동은 유지합니다. GUI 배율 2/3의 실제 클라이언트 캡처로 확인합니다.
+
+### Better Combat 충전 조작·모션 (0.5.13)
+
+현재 인스턴스의 Better Combat NeoForge `2.4.0+1.21.1`, Player Animator `2.0.4+1.21.1`, Cloth Config `15.0.140`의 JAR·메타데이터를 확인했습니다. ES의 Better Combat 선택 의존성 범위는 `[2.4.0,2.5)`입니다. 미설치 환경에서는 확장 근접 조작만 꺼지고 기존 기능은 유지합니다. 외부 모드와 의존성 JAR는 ES 배포물에 포함하지 않습니다.
+
+일반 반복 공격은 원본 `Minecraft.startUpswing(WeaponAttributes)`를 캐시한 호출로 시작합니다. 공개 API에는 공격 시작 요청 메서드가 없어 확인된 원본 입력 진입점만 연결하며, 모델·콤보·선딜·타격 범위·네트워크·타격음·내구도는 원본에 맡깁니다. Minecraft `startAttack/continueAttack/startUseItem` 앞에서 ES 슬롯 입력을 분리하고, 버튼을 놓을 때 바닐라 `missTime` 초기화를 유지하여 월드 입장 후 공격이 막히는 문제를 방지합니다. 공개 `CombatFlags`의 공격 비활성 상태를 존중하며 다른 모드의 플래그를 덮어쓰지 않습니다.
+
+`ServerNetwork.handleAttackRequest`의 원본 요청을 감싸 충전 시각과 무기를 서버에서 검사하고, 강공격의 후보를 가장 가까운 보이는 대상 하나로 줄인 뒤 원본 처리로 전달합니다. 원본 `MinecraftServer.executeIfPossible`는 호출 상황에 따라 타격을 뒤로 미루므로 해당 Runnable에도 공격 문맥을 전달하고 finally로 복원합니다. 피해 배율은 NeoForge `LivingIncomingDamageEvent`에서 해당 플레이어와 원본 요청 대상에만 적용하며, 강공격의 바닐라 추가 휩쓸기는 `SweepAttackEvent`로 막습니다. 정상·지연 실행에서 다른 공격에 배율이 남지 않습니다.
+
+`getAttackCooldownTicksCapped/getRangeForItem` 반환값에 무기별 배율을 적용합니다. 강공격 모션은 짧은 생성 범위에서 `PlayerAttackHelper.getCurrentAttack`의 `AttackHand/WeaponAttributes.Attack`를 복사해 모션 ID만 바꾸고, 원본 레지스트리를 수정하지 않습니다. 원본 애니메이션 패킷으로 팀원에게도 전달하며 `PlayerAnimationRegistry.getAnimation`으로 클라이언트 리소스 유무를 확인합니다. 공식 한손·양손 모션 이름에 맞춰 원본 시작 파라미터의 손 사용만 복사하여 조정합니다. 누락된 모션은 원래 콤보 모션으로 돌아갑니다.
+
+설정은 `es/melee/combat.json`의 공통값·아이템별 부분 변경으로 관리합니다. `/reload` 때 원자적으로 검증하고 이전 정상값을 유지하며, 확장 전의 간결한 설정을 접속 클라이언트에 전달해 무기 수가 많을 때도 불필요하게 패킷을 늘리지 않습니다. 크리에이티브·다른 슬롯은 원래 조작을 유지합니다. [조작·수치·모션 설정](melee.ko.md).
+
+검증은 외부 모드 없는 기본 서버, 설치된 Better Combat·TaCZ를 함께 로드한 서버 및 실제 클라이언트로 나눕니다. 실제 키 매핑 유지 → 원본 모션·타격 패킷 → 서버 피해까지 확인하며, 실제 `/reload`로 한손·양손 강공격 모션 변경·단일 대상·우클릭 해제 뒤 타격·시간 초과·메뉴 취소·크리에이티브 예외를 검사합니다. 개발 검사와 전용 구조물은 배포 JAR에서 제외합니다.
