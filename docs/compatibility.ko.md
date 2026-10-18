@@ -107,3 +107,11 @@ Create 원본 JAR와 포함된 Flywheel·Ponder·Registrate를 사용한 실제 
 ES는 UV가 원본 스프라이트 범위를 벗어났을 때 NeoForge `TextureAtlas.getTextures()` 공개 API에서 실제 범위를 포함하는 스프라이트를 찾아 사용합니다. 일반 면은 원본 경로를 유지하고, 검색은 512개 제한 캐시에 저장하며 아틀라스 재적용 시 함께 초기화합니다. Create 내부 필드 접근이나 Mixin, 외부 JAR·모델·텍스처 수정은 필요하지 않습니다. 알 수 없는 범위와 지원하지 않는 모델은 기존 안전한 충돌 형태를 유지합니다.
 
 큰 유리·가로 유리·세로 유리·타일 유리를 각 6방향으로 검사하고, 독립 블록의 단면 256개 중 134개가 투과하고 122개가 불투명 무늬에 차단되는 것을 확인했습니다. 연결된 3×3 유리, 실제 손전등 그림자 맵의 유리 뒤 조명·뒤쪽 돌벽 차단, 차광 유리 차단, 캐시 초기화, 기존 엔드 막대·바닐라 및 Create 사다리 검사를 유지합니다. 기본 렌더러와 Iris·Sodium·Complementary Reimagined r5.9.3의 실제 클라이언트에서 검사합니다.
+
+### TaCZ 원본 성능표·간단 툴팁 (0.5.11)
+
+설치된 TaCZ 1.1.8-hotfix-r7의 `AttachmentPropertyManager.getModifiers`, `IAttachmentModifier.getPropertyDiagramsData`와 `DiagramsData.titleKey/defaultString/positivelyBetter`를 직접 확인했습니다. `defaultString`에는 해당 복사본의 부착물까지 적용한 표시값이 들어갑니다. 이 API는 클라이언트 전용으로 전용 서버에서 제거되므로 ES의 클라이언트 연동 클래스에서만 호출합니다. 서버는 기존 안전한 공통 API로 장비·데이터를 전달합니다. 12개 표시 행 중 탄창 용량은 기존 `getAmmoCountWithAttachment`, 나머지는 원본 성능표의 최종 문자열·단위·개선 방향을 사용합니다. 반동 곡선과 분산 계산을 임의의 다른 공식으로 복제하지 않습니다. 선택 및 호버 후보 캐시에만 계산하고, 실패하면 기존 서버 메타데이터로 돌아갑니다.
+
+원본 `GunTooltip`은 텍스트 행 외의 구조화된 툴팁이므로 `ItemTooltipEvent`의 텍스트만 지우는 방식으로는 제거되지 않습니다. NeoForge의 공개 `RenderTooltipEvent.GatherComponents` 단계에서 이름·`AmmoItemBuilder`의 원본 탄약 이름·`ClientAssetsManager.getPackInfo`의 실제 팩 이름으로 교체합니다. 아이템·원본 JAR·총기팩을 변경하지 않습니다.
+
+실제 표시되는 클라이언트에서 GUI 배율 2/3의 12개 수치·얇은 막대·부착물 추가/제거 비교·변화량 너비에 맞춘 이동·스탯 설명·영역별 진입/종료·실제 인벤토리의 세 줄 툴팁·기존 자동 저장·HUD 복원을 검증합니다. 이전 버전의 일곱 항목·4픽셀 막대·단순 증감 색상 설명은 0.5.11의 표시 규칙으로 대체합니다.
