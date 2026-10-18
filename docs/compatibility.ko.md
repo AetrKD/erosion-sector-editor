@@ -133,3 +133,12 @@ ES 자체 `EquipmentHudLayout`의 고정 폭을 176에서 128 논리 픽셀로 �
 설정은 `es/melee/combat.json`의 공통값·아이템별 부분 변경으로 관리합니다. `/reload` 때 원자적으로 검증하고 이전 정상값을 유지하며, 확장 전의 간결한 설정을 접속 클라이언트에 전달해 무기 수가 많을 때도 불필요하게 패킷을 늘리지 않습니다. 크리에이티브·다른 슬롯은 원래 조작을 유지합니다. [조작·수치·모션 설정](melee.ko.md).
 
 검증은 외부 모드 없는 기본 서버, 설치된 Better Combat·TaCZ를 함께 로드한 서버 및 실제 클라이언트로 나눕니다. 실제 키 매핑 유지 → 원본 모션·타격 패킷 → 서버 피해까지 확인하며, 실제 `/reload`로 한손·양손 강공격 모션 변경·단일 대상·우클릭 해제 뒤 타격·시간 초과·메뉴 취소·크리에이티브 예외를 검사합니다. 개발 검사와 전용 구조물은 배포 JAR에서 제외합니다.
+
+
+### 충전 준비 모션·즉시 강공격·바닐라 게이지 (0.5.14)
+
+동일한 Better Combat 2.4.0의 `AbstractClientPlayerEntityMixin.playAttackAnimation`, `AttackAnimationSubStack`, `CustomAnimationPlayer`, `WeaponSwing`과 `MinecraftClientInject.startUpswing/performAttack/currentUpswingTicks`의 실제 바이트코드를 확인했습니다. Player Animator 2.0.4의 키프레임 시간·부분 틱 샘플링을 사용합니다. 원본이 조정한 모션 복사본에서 0~beginTick만 충전 시간에 맞춰 샘플링하고 최대 충전에서 유지합니다. 좌클릭 시 beginTick 이후를 이어 재생하며 원본 타격 메서드를 같은 클라이언트 틱에 한 번 호출합니다. 이후 native WeaponSwing의 upswing을 -1로 유지해 다음 틱에 타격이 재실행되지 않게 하고 원본 회복·쿨타임을 유지합니다. 내부 메서드·필드 연결은 검증한 정확한 버전에 한정하며 리플렉션 핸들은 최초 한 번만 조회합니다.
+
+주변 클라이언트에는 서버가 승인한 준비·타격·취소 상태를 ES 패킷으로 전달합니다. 강공격 범위에서만 Better Combat의 시작 모션 패킷을 억제해 관전자에게 준비 동작이 중복 재생되지 않게 합니다. 일반 공격·원본 레지스트리·외부 JAR·에셋·설정은 변경하지 않습니다. 취소·시간 초과·아이템 변경·메뉴·접속 종료를 정리합니다.
+
+Minecraft 1.21.1 Gui.renderCrosshair의 실제 hud/crosshair_attack_indicator_background 및 progress 스프라이트와 좌표·블렌딩을 재사용합니다. 충전 게이지가 보일 때만 기본 공격 지시계를 숨기며 조준선과 나머지 HUD는 유지합니다. 표시된 실제 클라이언트에서 준비·최대 유지·타격·시간 초과·메뉴 취소·한손/양손 설정 재적용을 확인합니다.
