@@ -154,3 +154,12 @@ Minecraft 1.21.1 `AttributeInstance.addOrUpdateTransientModifier/getModifier/rem
 ### 강공격 충전 만료 경고 (0.5.16)
 
 기존 서버 충전 상태와 클라이언트 시간 보간을 사용해 만료 직전 12틱(0.6초)에 여섯 번의 표시 단계를 배치합니다. 0.1초 숨김/표시를 세 번 반복하며 충전 제한이 짧으면 기간을 비례 축소합니다. HUD 시간과 경고 단계는 충전 중 뒤로 이동하지 않아 서버 동기화 보정으로 같은 깜빡임이 반복되지 않습니다. 새 충전·취소·메뉴 전환 때 초기화합니다. 기본 조준선의 쿨타임 지시계는 경고의 숨김 단계에도 억제하여 다른 게이지가 대신 보이지 않게 합니다. 타격·감속·충전 판정과 패킷은 변경하지 않습니다. 실제 클라이언트에서 여섯 표시 단계와 화면 캡처를 확인합니다.
+
+
+### 통합 장비 HUD·부착물 기여분·최종 사거리 (0.5.17)
+
+설치된 TaCZ NeoForge 1.1.8-hotfix-r7 `GunHudOverlay.render`와 `HeatBarOverlay.render`의 정확한 시그니처를 확인했습니다. ES 선택적 클라이언트 Mixin은 서바이벌·모험에서 이 두 레이어만 취소하고, 크리에이티브·관전자와 나머지 TaCZ 조준·피격 효과는 유지합니다. 우상단 카드는 약실을 포함한 장전탄·예비탄·로비 무한 탄약과 공개 IGun.getFireMode/isOverheatLocked/getHeatAmount, GunData.getHeatData, GunHeatData.getHeatMax로 발사 모드·열 상태를 읽습니다. UNKNOWN은 원본 GunHudOverlay와 같이 단발 표기를 사용합니다. 외부 설정·JAR는 수정하지 않습니다.
+
+EffectiveRangeModifier.getPropertyDiagramsData의 defaultString은 다른 행과 달리 보정 전 기준 거리였습니다. ES는 동기화된 총기와 정확한 미리보기 스택으로 평가한 AttachmentCacheProperty.getCache(GunProperties.EFFECTIVE_RANGE)의 최종값을 읽고 원본과 같은 소수 1자리·m·1024 상한으로 표시합니다. 팬텀 S1 원본 effective_range.multiplier=1.5를 확인하고 AK-47에서 30.0m→45.0m를 검증했습니다. 관통력은 원본 PierceModifier의 최종 표시를 사용하며 방어 무시와 별도 행입니다.
+
+장착 슬롯 호버는 해당 외부 부착물만 제거한 복사본을 캐시해 현재 장착 효과를 비교합니다. 후보 호버는 기존처럼 슬롯을 교체한 복사본을 계산합니다. 현재 수치·변화량·막대 방향을 각 비교 기준에 맞추고 실제 장비와 서버 상태는 변경하지 않습니다. 장착 부착물을 제거한 결과는 내장 부착물 유지 규칙을 그대로 따릅니다. 실제 GUI 2/3, 관통력 포함 13행, 후보와 장착 효과, 팬텀 S1 사거리, 로비의 현재 장전탄/∞, 선택 카드 확대·정렬, 선택 의존성이 없는 서버에서 검증합니다.
