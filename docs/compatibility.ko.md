@@ -80,3 +80,12 @@ Create 원본 JAR와 포함된 Flywheel·Ponder·Registrate를 사용한 실제 
 - OpenGL 검사: 기존 업로드 상태 복원, 문 표면, 금속 무늬, 모서리, 광원 4개, 총구 점등, 주변 어둠, Full HD·4K 밝기 경계 검사 통과.
 
 개발용 `-PopticalSmoke`와 `-PopticalIris` 실행은 별도 `run/saves/es-optical-smoke`를 사용하며 클라이언트 검사 클래스는 배포 JAR에서 제외합니다. Sodium의 설치 배포물은 서비스 라이브러리와 내부 JAR로 구성되어 있어, 개발 실행에서도 원래 서비스의 초기화와 원본 내부 JAR가 모두 로드되도록 구성했습니다. 사용자의 인스턴스나 외부 모드 파일을 고치는 방식으로 해결하지 않았습니다.
+
+
+### 장비 패널 세부 표시 (0.5.8)
+
+설치된 TaCZ NeoForge 1.21.1 1.1.8-hotfix-r7의 `GunPropertyDiagrams.draw`와 `GunAttachmentSlot`, `InventoryAttachmentSlot` 바이트코드를 확인했습니다. 성능표 전체 렌더러는 실제 주 손과 플레이어 캐시를 읽으므로 임의의 선택 장비에 직접 호출하지 않습니다. ES는 그 막대 형태(검정 배경, 흰색 4픽셀 채움)를 사용하고 요청된 노랑/빨강 비교 구간을 추가합니다. 공개 `AttachmentCacheProperty.eval`, `AttachmentDataUtils`와 기존 API로 복사본의 부착물 성능을 계산합니다. `CommonAssetsManager.get()`의 클라이언트 대체 경로는 동기화된 `CommonNetworkCache.INSTANCE`인 것을 확인했습니다. 커서 이동은 네트워크 요청이나 실제 인벤토리 변경을 발생시키지 않습니다.
+
+제거 옵션은 복사본에서 해당 외부 부착물만 해제한 뒤 원본 `GunAttachmentSlot`에 전달하여 빈 종류 아이콘을 얻습니다. 근접 스킨 아이콘에는 동일 아이템에 등록된 스킨 데이터가 적용된 서버 제공 복사본을 사용합니다. TaCZ가 없으면 18×18 ES 아이템 버튼으로 표시하며 서버에서 클라이언트 클래스를 로드하지 않습니다. 장비 목록 아이콘은 카탈로그가 바뀔 때만 인코딩하고 스킨·부착물 스택은 기존 상태 캐시에 포함합니다.
+
+기본 서버 검사, 설치된 TaCZ 서버 검사, 실제 표시된 클라이언트 GUI 배율 2/3에서 교체 애니메이션·빈 슬롯·스킨 아이콘·호버 비교·자동 적용·Esc 복원을 검증합니다. TaCZ JAR·총기팩·설정은 변경하지 않습니다.
