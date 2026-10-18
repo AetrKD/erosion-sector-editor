@@ -45,7 +45,7 @@ const tilePreview=createTilePreview({panel:$('tilePreviewPanel'),notify:toast});
 const simulation=createSimulationPanel({getProject:()=>project,modal,body:$('dialogBody'),navigate:(kind,id)=>{$('dialog').close();selectTarget(kind,id);}});
 
 tilePreview.openButton.onclick=()=>$('previewNbtInput').click();
-function showPreview(){ui.workspace='preview';renderAll();}
+function showPreview(){ui.workspace='preview';ui.tab='tiles';ui.mode='select';ui.brush=null;renderAll();}
 async function previewTile(){const tile=project.tiles.find(t=>t.id===ui.selection?.id);showPreview();if(!tile?.asset?.bytes){toast('원본이 연결되지 않았습니다. 타일 폴더를 연결하거나 설계도 하나를 여세요.');return;}tilePreview.open(Uint8Array.from(atob(tile.asset.bytes),c=>c.charCodeAt(0)),tile.name);}
 function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').className='toast show'+(error?' error':'');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4200);
   if(error&&$('dialog').open){let note=$('dialogBody').querySelector('[data-dialog-error]');if(!note){note=document.createElement('div');note.dataset.dialogError='';note.className='note warning';note.setAttribute('role','alert');$('dialogBody').append(note);}note.textContent=message;}
@@ -114,7 +114,7 @@ function renderAreaTree(){
     const matches=(room.code+' '+room.name).toLowerCase().includes(query),children=room.children.filter(p=>matches||(p.areaCode+' '+p.name+' '+p.tileName+' '+p.gimmicks.map(g=>g.name).join(' ')).toLowerCase().includes(query));
     if(query&&!matches&&!children.length)return '';
     return `<details class="area-folder ${ui.activeRoomId===room.id?'active-area':''}" data-folder="${esc(room.id)}" ${!closedAreas.has(room.id)||query?'open':''}><summary><button class="tree-folder-select" data-room="${esc(room.id)}"><span class="folder-symbol" style="color:${room.color}">▰</span><span><strong>${esc(areaLabel(room))}</strong><small>${esc(room.name)} · ${room.children.length}개 타일</small></span></button><button class="icon-button" data-select-kind="room" data-select-id="${esc(room.id)}" aria-label="${esc(areaLabel(room))} 속성">⋯</button></summary><div class="tree-children">${children.map(leaf).join('')||'<small class="tree-empty">이 구역에 타일을 배치하세요.</small>'}</div></details>`;
-  }).join('')||(project.tiles.length?'<div class="empty-state">검색 결과가 없습니다.</div>':'<div class="empty-state">등록된 타일이 없습니다.<br>폴더를 연결하거나 아래에서 설계용 타일을 만드세요.</div>');
+  }).join('')||'<div class="empty-state">검색 결과가 없습니다.</div>';
   const orphan=project.placements.filter(p=>!project.rooms.some(r=>r.id===p.roomId));
   if(orphan.length)target.insertAdjacentHTML('beforeend',`<div class="note warning">구역 미지정</div>${orphan.map(p=>leaf({...p,tileName:tileOf(project,p)?.name||'없는 타일',gimmicks:project.gimmicks.filter(g=>g.placementId===p.id)})).join('')}`);
 }
@@ -122,8 +122,8 @@ function renderTileList(){
   if(!$('tileList'))return;
   const tiles=project.tiles.filter(t=>(t.name+' '+t.category).toLowerCase().includes(ui.search.toLowerCase()));
   const groups=new Map();for(const tile of tiles){const folder=tile.asset?.reference?.split('/').slice(0,-1).join('/')||'설계용 · 미연결';if(!groups.has(folder))groups.set(folder,[]);groups.get(folder).push(tile);}
-  const card=tile=>`<button class="tile-card ${ui.brush?.id===tile.id?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-library-tile="${esc(tile.id)}"><div class="tile-preview"><span class="tile-kind">${esc(tile.category)}</span><span class="tile-status ${tile.asset?'real':''}">${tile.asset?(tile.asset.bytes?'원본 연결됨':'원본 미연결'):'설계용'}</span>${tileThumbnail(tile)}</div><div class="tile-info"><div><strong>${esc(tile.name)}</strong><small>${tile.size.x} × ${tile.size.z} × 높이 ${tile.size.y} · 문 ${tile.ports.length}</small></div><span class="tile-dots">↗</span></div></button>`;
-  $('tileList').innerHTML=[...groups].map(([folder,items])=>`<details class="tileset-folder" open><summary>▰ ${esc(folder)} <span>${items.length}</span></summary>${items.map(card).join('')}</details>`).join('')||'<div class="empty-state">검색 결과가 없습니다.</div>';
+  const card=tile=>`<button class="tile-card ${ui.brush?.id===tile.id?'selected':''}" draggable="true" title="${ui.workspace==='preview'?'클릭해서 설계도 미리보기':'지도로 끌어 배치하거나 클릭해서 선택'}" data-library-tile="${esc(tile.id)}"><div class="tile-preview"><span class="tile-kind">${esc(tile.category)}</span><span class="tile-status ${tile.asset?.bytes?'real':''}">${tile.asset?(tile.asset.bytes?'원본 연결됨':'원본 미연결'):'설계용'}</span>${tileThumbnail(tile)}</div><div class="tile-info"><div><strong>${esc(tile.name)}</strong><small>${tile.size.x} × ${tile.size.z} × 높이 ${tile.size.y} · 문 ${tile.ports.length}</small></div><span class="tile-dots">↗</span></div></button>`;
+  $('tileList').innerHTML=[...groups].map(([folder,items])=>`<details class="tileset-folder" open><summary>▰ ${esc(folder)} <span>${items.length}</span></summary>${items.map(card).join('')}</details>`).join('')||(project.tiles.length?'<div class="empty-state">검색 결과가 없습니다.</div>':'<div class="empty-state">등록된 타일이 없습니다.<br>폴더를 연결하거나 아래에서 설계용 타일을 만드세요.</div>');
 }
 function renderFloors(){
   const floors=new Set([ui.floor,0]);for(const p of project.placements){const t=tileOf(project,p);if(t)for(let f=p.y;f<p.y+t.size.y/8;f++)floors.add(f);}
@@ -143,14 +143,18 @@ function renderAll(){
   $('validationSummary').textContent=errors?`⊗ 수정 필요 ${errors} · 주의 ${warnings}`:warnings?`△ 설계도 연결 등 확인 ${warnings}`:'✓ 배치 검사 통과';
   $('validationSummary').className='validation-summary '+(errors?'error':warnings?'':'good');
   renderWorkflow(issues);
-  renderLibrary();renderFloors();renderInspector();if(ui.workspace==='events')logicEditor.render();else logicEditor.close();$('canvasWrap').hidden=ui.workspace!=='map';document.querySelector('.floor-bar').hidden=ui.workspace!=='map';$('tilePreviewPanel').hidden=ui.workspace!=='preview';tilePreview.draw();map.draw();
+  if(!logicEditor.updatingFields())renderLibrary();renderFloors();if(ui.workspace!=='events')renderInspector();if(ui.workspace==='events')logicEditor.render();else logicEditor.close();$('canvasWrap').hidden=ui.workspace!=='map';document.querySelector('.floor-bar').hidden=ui.workspace!=='map';$('tilePreviewPanel').hidden=ui.workspace!=='preview';tilePreview.draw();map.draw();
 }
 function renderWorkflow(issues=validate(project)){
   const steps=workflowSteps(project,issues),done=steps.filter(s=>s.done).length,next=steps.find(s=>!s.done);
   $('workflowCount').textContent=`${done}/${steps.length}`;$('workflowNext').textContent=next?'다음: '+next.title:'제작 체크리스트';
   document.querySelectorAll('button[data-workspace],button[data-workspace-tab]').forEach(button=>{if((button.dataset.workspace||button.dataset.workspaceTab)===ui.workspace)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
   document.querySelector('.editor').dataset.workspace=ui.workspace;
-  const context=$('workspaceContext');context.hidden=ui.workspace==='map';context.innerHTML=(ui.workspace==='preview'?'개별 NBT 설계도의 모양을 확인합니다. 배치 지도에서는 크기와 문 위치를 사용합니다.':'조건이 충족됐을 때 실행할 동작을 블록으로 연결하세요.')+'<button data-workspace="map">배치 지도로 돌아가기</button>';
+  document.querySelector('.workspace').dataset.workspace=ui.workspace;
+  document.querySelector('#libraryPanel .panel-heading h2').textContent=ui.workspace==='events'?'이벤트 목록':ui.workspace==='preview'?'타일 라이브러리':'라이브러리';document.querySelector('.library-footer').hidden=ui.workspace==='events';
+  document.querySelector('.editor-toolbar').hidden=ui.workspace!=='map';document.querySelector('.shortcut-hint').hidden=ui.workspace!=='map';$('cursorStatus').hidden=ui.workspace!=='map';
+  document.querySelector('[data-action=toggle-inspector]').hidden=ui.workspace==='events';
+  const context=$('workspaceContext');context.hidden=ui.workspace!=='preview';context.innerHTML='개별 NBT 설계도의 모양을 확인합니다. 배치 지도에서는 크기와 문 위치를 사용합니다.<button data-workspace="map">배치 지도로 돌아가기</button>';
   const placing=ui.workspace==='map'&&ui.brush&&['paint','gimmick'].includes(ui.mode);$('placementBanner').hidden=!placing;
   if(placing){const name=ui.brush.kind==='tile'?project.tiles.find(t=>t.id===ui.brush.id)?.name:KINDS[ui.brush.id]?.label;$('placementHint').textContent=ui.brush.kind==='tile'?`${name||'타일'} · ${ui.brush.rotation||0}° — 지도에 클릭해서 배치 · R 회전`:`${name||'기믹'} — 배치된 타일 안을 클릭하세요`;}
   $('emptyMap').hidden=ui.workspace!=='map'||project.placements.length>0||!!placing;
@@ -311,7 +315,7 @@ document.addEventListener('click',event=>{
   }
   if(button.dataset.action){actions[button.dataset.action]?.();return;}
   if(button.dataset.tab){ui.tab=button.dataset.tab;ui.workspace=ui.tab==='events'?'events':'map';renderAll();return;}
-  if(button.dataset.libraryTile){ui.workspace='map';const id=button.dataset.libraryTile;ui.selection={kind:'library',id};ui.brush={kind:'tile',id,rotation:0};ui.mode='paint';ui.view='plan';renderAll();if(innerWidth<620)$('libraryPanel').classList.remove('visible');return;}
+  if(button.dataset.libraryTile){const id=button.dataset.libraryTile;ui.selection={kind:'library',id};if(ui.workspace==='preview'){previewTile();if(innerWidth<620)$('libraryPanel').classList.remove('visible');return;}ui.workspace='map';ui.brush={kind:'tile',id,rotation:0};ui.mode='paint';ui.view='plan';renderAll();if(innerWidth<620)$('libraryPanel').classList.remove('visible');return;}
   if(button.dataset.mode){ui.workspace='map';ui.mode=button.dataset.mode;if(ui.mode==='paint'&&ui.brush?.kind!=='tile'){ui.brush={kind:'tile',id:project.tiles[0]?.id,rotation:0};}ui.view='plan';renderAll();return;}
   if(button.dataset.view){ui.workspace='map';ui.view=button.dataset.view;renderAll();return;}
   if(button.dataset.floor!==undefined){ui.floor=Number(button.dataset.floor);renderFloors();map.draw();return;}
@@ -336,7 +340,7 @@ document.addEventListener('dragstart',event=>{
   const source=event.target.closest('[data-library-tile],[data-gimmick-type]');if(!source)return;
   const brush=source.dataset.libraryTile?{kind:'tile',id:source.dataset.libraryTile,rotation:ui.brush?.kind==='tile'&&ui.brush.id===source.dataset.libraryTile?ui.brush.rotation||0:0}:{kind:'gimmick',id:source.dataset.gimmickType};
   event.dataTransfer.setData(PALETTE_MIME,JSON.stringify(brush));event.dataTransfer.effectAllowed='copy';paletteSource=source;source.classList.add('palette-dragging');
-  paletteWorkspaceChanged=ui.workspace!=='map';ui.workspace='map';$('canvasWrap').hidden=false;$('emptyMap').hidden=true;$('placementBanner').hidden=true;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
+  paletteWorkspaceChanged=ui.workspace!=='map';ui.workspace='map';renderWorkflow();$('canvasWrap').hidden=false;$('emptyMap').hidden=true;$('placementBanner').hidden=true;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
 });
 document.addEventListener('dragend',finishPaletteDrag);
 document.addEventListener('drop',finishPaletteDrag);
@@ -378,7 +382,7 @@ window.addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();actions[event.shiftKey?'redo':'undo']();return;}
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='y'){event.preventDefault();actions.redo();return;}
   if(event.ctrlKey||event.metaKey||event.altKey)return;
-  if(ui.workspace==='events'){if(event.key==='Escape'){ui.workspace='map';renderAll();}return;}
+  if(ui.workspace!=='map'){if(event.key==='Escape'){ui.workspace='map';renderAll();}return;}
   switch(event.key.toLowerCase()){
     case 'v':ui.mode='select';renderAll();break;
     case 'b':ui.mode='paint';if(ui.brush?.kind!=='tile')ui.brush={kind:'tile',id:project.tiles[0]?.id,rotation:0};ui.view='plan';renderAll();break;

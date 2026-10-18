@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#121a21"><meta name="description" content="Erosion Sector 타일과 기믹을 조립하는 스테이지 에디터. Create 설계도를 불러오고 층별로 공간을 구성하세요.">
-  <title>Erosion Sector Editor</title><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./events.css"><link rel="stylesheet" href="./workflow.css">
+  <title>Erosion Sector Editor</title><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./events.css"><link rel="stylesheet" href="./workflow.css"><link rel="stylesheet" href="./event-workshop.css">
 </head>
 <body>
   <header class="app-header">
@@ -23,8 +23,8 @@
       <div class="library-footer"><span class="grid-icon">▦</span><div><strong>기본 타일 규격</strong><span>가로·깊이 자유 · 높이 8의 배수 · 문 1개 이상</span></div></div>
     </aside>
     <section class="editor" aria-label="스테이지 배치 작업 영역">
-      <nav class="workspace-nav" aria-label="편집 작업"><div class="workspace-tabs"><button data-workspace="map" aria-current="page">배치 지도</button><button data-action="preview" data-workspace-tab="preview">타일 미리보기</button><button data-action="events" data-workspace-tab="events">이벤트 편집</button></div><div class="workspace-actions"><button data-action="mission">임무 목표</button><button data-action="simulate">모의 실행</button></div></nav>
-      <div class="editor-toolbar"><div class="tool-group"><button data-action="toggle-library" class="icon-button mobile-toggle" title="라이브러리 열기" aria-label="라이브러리 열기">▤</button><button data-mode="select" class="tool active" title="선택 / 이동 (V)">↖ <span>선택</span></button><button data-mode="paint" class="tool" title="타일 배치 (B)">▦ <span>배치</span></button><button data-action="undo" class="icon-button" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button><button data-action="redo" class="icon-button" title="다시 실행 (Ctrl+Y)" aria-label="다시 실행">↷</button></div><div class="view-switch" aria-label="보기 방식"><button data-view="plan" class="active">평면</button><button data-view="iso">입체</button><button data-action="toggle-inspector" class="icon-button mobile-toggle" aria-label="속성 열기">☷</button></div></div>
+      <nav class="workspace-nav" aria-label="편집 작업"><div class="workspace-tabs"><button data-workspace="map" aria-current="page">배치 지도</button><button data-action="preview" data-workspace-tab="preview">타일 미리보기</button><button data-action="events" data-workspace-tab="events">이벤트 편집</button></div><div class="workspace-actions"><button data-action="toggle-library" class="icon-button mobile-toggle" title="라이브러리 열기" aria-label="라이브러리 열기">▤</button><button data-action="undo" class="icon-button" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button><button data-action="redo" class="icon-button" title="다시 실행 (Ctrl+Y)" aria-label="다시 실행">↷</button><button data-action="mission">임무 목표</button><button data-action="simulate">모의 실행</button><button data-action="toggle-inspector" class="icon-button mobile-toggle" aria-label="속성 열기">☷</button></div></nav>
+      <div class="editor-toolbar" aria-label="배치 지도 도구"><div class="tool-group"><button data-mode="select" class="tool active" title="선택 / 이동 (V)">↖ <span>선택</span></button><button data-mode="paint" class="tool" title="타일 배치 (B)">▦ <span>배치</span></button></div><div class="view-switch" aria-label="보기 방식"><button data-view="plan" class="active">평면</button><button data-view="iso">입체</button></div></div>
       <div class="workspace-context" id="workspaceContext" hidden></div>
       <section id="logicPanel" class="logic-panel" aria-label="이벤트 작업실" hidden></section>
       <section id="tilePreviewPanel" class="tile-preview-panel" aria-label="설계도 미리보기 작업실" hidden></section>

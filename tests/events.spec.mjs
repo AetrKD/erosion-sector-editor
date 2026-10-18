@@ -90,7 +90,7 @@ test('mobile event composition remains accessible without drag and drop or page 
   await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'라이브러리 열기',exact:true}).click();
   await page.locator('[data-tab=events]').click();await page.locator('#libraryContent [data-logic=example]').click();
   await expect(page.locator('#libraryPanel')).not.toBeVisible();await expect(page.locator('#logicPanel')).toBeVisible();
-  await page.locator('[data-block-type="do.message"]').click();expect((await snapshot(page)).programs[0].actions.at(-1).type).toBe('do.message');
+  await page.locator('[data-logic=palette]').click();await page.locator('[data-block-type="do.message"]').click();expect((await snapshot(page)).programs[0].actions.at(-1).type).toBe('do.message');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'artifacts/editor-events-mobile.png'});
 });
