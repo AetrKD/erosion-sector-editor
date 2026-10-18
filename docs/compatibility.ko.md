@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-18
 
+0.5.5 장비 작업실은 설치된 TaCZ 1.1.8-hotfix-r7의 `IGun.allowAttachment/allowAttachmentType`, `installAttachment/unloadAttachment/getAttachment`, `AttachmentItemBuilder`, `TimelessAPI.getAllCommonAttachmentIndex`, `AttachmentDataUtils.getAmmoCountWithAttachment`를 확인했습니다. 원본 `GunSmithTableScreen.renderLeftModel`의 `FIXED` 렌더 경로와 `RenderDistance.markGuiRenderTimestamp`를 사용해 부착물을 포함한 실제 총기 모델을 그립니다. 등록과 장착은 서버에서 호환성을 검사합니다. 원본 JAR·총기팩·설정은 수정하지 않습니다. 전용 근접무기 스킨은 Minecraft 1.21.1 `ItemRenderer.getModel`의 반환 모델과 NeoForge `ModelEvent.RegisterAdditional`만 사용하며 실제 아이템 속성은 변경하지 않습니다. 기본 서버 154개, 설치 TaCZ 서버 7개 검사와 표시되는 실제 클라이언트의 세 선택기 블록·전용 화면·개별 적용·스킨 모델·조준경 장착·적용 패킷·회전·확대·GUI 배율 2/3을 확인했습니다. [장비와 등록 파일](equipment.ko.md).
+
 0.5.4는 설치된 Minecraft 1.21.1의 `ServerLevel` 생성자와 `Level.levelData`/`ServerLevel.serverLevelData`의 동일 인수 할당, `DerivedLevelData`의 전역 GameRules·시간·날씨 위임, NeoForge 21.1.259의 `MobSpawnEvent.SpawnPlacementCheck`와 `FinalizeSpawnEvent.setSpawnCancelled`를 확인했습니다. ES 두 차원에만 원본 데이터를 감싼 LevelData를 전달하고, 게임 틱 시계는 원본에 위임합니다. 차단하는 규칙 이외에는 현재 원본 규칙을 계속 읽으며, 자연 생성 타입만 거부합니다. 실제 네이티브 소환과 몹 폭발, 서버 검사 151개 및 표시되는 클라이언트의 차원 이동·고정 시각·부활·재접속을 검증합니다. 외부 모드 파일은 수정하지 않습니다. [차원 환경 규칙](dimension-rules.ko.md).
 
 0.5.3의 자동 월드 생성은 설치된 Minecraft 1.21.1의 `TitleScreen.createNormalMenuOptions`, `WorldOpenFlows.createFreshLevel`, `WorldDimensions.bake`와 NeoForge 21.1.259의 `ScreenEvent.Init.Post`를 확인했습니다. 기본 모드 데이터팩의 차원을 함께 로드하는 원본 생성 흐름을 사용하며, 싱글플레이 버튼만 ES 생성으로 연결합니다. 최초 도착·부활은 서버의 `PlayerLoggedInEvent`, `PlayerRespawnEvent`, `Clone`에서 처리하고 임무 중 관전은 StageRuntime 처리 뒤에 보존합니다. 기본 서버 검사 148개와 표시되는 실제 클라이언트의 생성·사망·부활·저장·재접속·두 번째 새 월드 흐름을 확인했습니다. TaCZ·Create·CarryOn 등 외부 모드 파일과 기존 사용자 설정은 변경하지 않습니다. [로비 생성 안내](lobby-world.ko.md).
