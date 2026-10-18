@@ -89,3 +89,12 @@ Create 원본 JAR와 포함된 Flywheel·Ponder·Registrate를 사용한 실제 
 제거 옵션은 복사본에서 해당 외부 부착물만 해제한 뒤 원본 `GunAttachmentSlot`에 전달하여 빈 종류 아이콘을 얻습니다. 근접 스킨 아이콘에는 동일 아이템에 등록된 스킨 데이터가 적용된 서버 제공 복사본을 사용합니다. TaCZ가 없으면 18×18 ES 아이템 버튼으로 표시하며 서버에서 클라이언트 클래스를 로드하지 않습니다. 장비 목록 아이콘은 카탈로그가 바뀔 때만 인코딩하고 스킨·부착물 스택은 기존 상태 캐시에 포함합니다.
 
 기본 서버 검사, 설치된 TaCZ 서버 검사, 실제 표시된 클라이언트 GUI 배율 2/3에서 교체 애니메이션·빈 슬롯·스킨 아이콘·호버 비교·자동 적용·Esc 복원을 검증합니다. TaCZ JAR·총기팩·설정은 변경하지 않습니다.
+
+
+### 로비 탄약·개조 제한·UI 수정 (0.5.9)
+
+동일한 TaCZ 1.1.8-hotfix-r7의 `LivingEntityAmmoCheck.needCheckAmmo`, `ModernKineticGunScriptAPI.hasAmmoToConsume/consumeAmmoFromPlayer`를 확인했습니다. 로비 플레이어에만 네이티브 예비탄 검사와 추출을 우회하며, 실제 탄창 소모와 재장전은 유지합니다. 임무용 예비탄은 저장하거나 덮어쓰지 않습니다. 판정은 현재 차원을 직접 읽으므로 차원을 나가면 즉시 해제되며 몹에는 적용되지 않습니다.
+
+`RefitKey`가 `GunRefitScreen`을 여는 경로와 `ClientMessageRefitGun`, `ClientMessageUnloadAttachment`, `ClientMessageLaserColor`의 정적 `handle` 시그니처 및 enqueueWork 이전 호출을 확인했습니다. 화면은 NeoForge `ScreenEvent.Opening`으로 취소하며 세 기본 개조 요청은 선택적 Mixin의 HEAD에서 취소합니다. ES 공개 API 부착·해제와 선택 콜백은 이 패킷을 사용하지 않아 계속 정상 작동합니다. TaCZ 자체 코드·리소스·설정은 변경하지 않습니다.
+
+원본 버튼은 유지하되 떠다니는 툴팁을 호출하지 않습니다. 고정 설명 칸, 가운데 정렬, 전체 패널의 동일 이동, 스탯 전경의 명시적 깊이를 사용합니다. 실제 GUI 배율 2/3와 GPU 캡처의 일곱 막대 픽셀, 기본 개조 화면 차단 및 서버 요청 차단·로비 이탈을 검증합니다.
