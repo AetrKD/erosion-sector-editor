@@ -4,7 +4,7 @@
 
 ## 확인 대상: 2026-10-18
 
-0.5.7은 TaCZ 1.1.8-hotfix-r7의 `GunAttachmentSlot`, `InventoryAttachmentSlot`, `RefitUnloadButton` 생성자·렌더 흐름을 직접 확인하고 원본 위젯을 ES 화면에서 재사용합니다. 18×18 슬롯·원본 아이콘·16×16 아이템 렌더는 별도의 표시용 Inventory만 읽으며 콜백은 ES 패킷으로 보냅니다. NeoForge 21.1.259의 취소 가능한 `RenderGuiEvent.Pre`와 `RenderHandEvent`로 장비 화면 동안만 전체 HUD와 손을 숨깁니다. Minecraft 1.21.1 `AbstractContainerScreen.renderBackground`가 `renderBg`도 호출하는 흐름을 확인해 배경·블러 없이 중앙 모델을 유지합니다. 화면·스탯은 스크롤 없이 표시하며 메뉴의 선택·스킨·부착물 요청에서 저장된 구성을 자동 적용합니다. 기본 서버 156개, 설치 TaCZ 7개 검사 및 표시되는 실제 클라이언트의 투명 월드·모델·HUD 복원·원본 위젯·자동 적용·GUI 배율 2/3을 검증합니다. 외부 모드와 사용자 HUD 설정은 수정하지 않습니다.
+0.5.7은 TaCZ 1.1.8-hotfix-r7의 `GunAttachmentSlot`, `InventoryAttachmentSlot`, `RefitUnloadButton` 생성자·렌더 흐름을 직접 확인하고 원본 위젯을 ES 화면에서 재사용합니다. 18×18 슬롯·원본 아이콘·16×16 아이템 렌더는 별도의 표시용 Inventory만 읽으며 콜백은 ES 패킷으로 보냅니다. NeoForge 21.1.259의 취소 가능한 `RenderGuiEvent.Pre`와 `RenderHandEvent`로 장비 화면 동안만 전체 HUD와 손을 숨깁니다. Minecraft 1.21.1 `AbstractContainerScreen.renderBackground`가 `renderBg`도 호출하는 흐름을 확인해 배경·블러 없이 중앙 모델을 유지합니다. 당시 화면·스탯은 스크롤 없이 표시했으며(0.5.19부터 스탯 영역은 스크롤 지원), 메뉴의 선택·스킨·부착물 요청에서 저장된 구성을 자동 적용합니다. 기본 서버 156개, 설치 TaCZ 7개 검사 및 표시되는 실제 클라이언트의 투명 월드·모델·HUD 복원·원본 위젯·자동 적용·GUI 배율 2/3을 검증합니다. 외부 모드와 사용자 HUD 설정은 수정하지 않습니다.
 
 0.5.6 장비 화면은 같은 세 선택기 블록을 유지하면서 목록·3D 미리보기·성능의 세 열로 구성합니다. 설치된 TaCZ 1.1.8-hotfix-r7의 `GunIndexPOJO.getTooltip`, `IGun.getRPM`, `AttachmentDataUtils.getDamageWithAttachment/getHeadshotMultiplier/getArmorIgnoreWithAttachment/getWightWithAttachment`, `AttachmentCacheProperty.eval/getCache`와 `GunProperties.ADS_TIME`를 확인했습니다. 부착물을 반영한 스탯은 서버의 선택 캐시에 포함하며 매 프레임 파일·총기 성능을 재계산하지 않습니다. 근접무기는 원본 `ItemStack.forEachModifier`와 독립 `AttributeInstance`로 무기 속성을 평가합니다. 기본 서버 155개·설치 TaCZ 서버 7개 검사 및 실제 클라이언트의 설명·스탯·하단 스킨·부착물 상승 패널·선택·Esc·회전·GUI 배율 2/3을 확인합니다. 외부 모드 원본은 수정하지 않습니다.
 
@@ -168,3 +168,8 @@ EffectiveRangeModifier.getPropertyDiagramsData의 defaultString은 다른 행과
 ### 손전등 상태 아이콘 (0.5.18)
 
 기존 FlashlightStatePayload의 소유자 상태를 바 사이의 16×9 픽셀 아이콘에 표시합니다. 새 광원 계산·상태 패킷·외부 모드 연동은 추가하지 않습니다. 기존 20 GUI 픽셀 간격 안에 그리며 바의 위치·크기·다른 HUD는 유지합니다. 켜짐/꺼짐 액션바 메시지 호출과 사용하지 않는 두 번역 키를 제거했습니다. 실제 서버 토글→클라이언트 상태→HUD 픽셀, 액션바를 덮어쓰지 않는 동작을 GUI 배율 2·3에서 검증합니다.
+
+
+### 장비 스탯 카드 간격·스크롤 (0.5.19)
+
+스탯 데이터와 TaCZ 성능표 연동은 유지하고 ES 화면 배치만 수정합니다. 행은 28 GUI 픽셀로 유지하고 글자·막대·카드 끝 사이에 여백을 둡니다. 높이가 부족할 때만 스크롤바를 표시하며 휠·트랙 클릭·썸 드래그로 마지막 행까지 이동합니다. 부착물 목록이 열려 있어도 오른쪽 스탯 입력은 먼저 처리합니다. 무기 변경 시 처음으로 돌아가고 같은 무기 부착물 변경 시 위치를 보존합니다. Minecraft 1.21.1 GuiGraphics.enableScissor가 PoseStack 이동을 자동 반영하지 않는 것을 소스로 확인하여 우측 패널 애니메이션 이동량을 클립에도 적용합니다. 중첩 클립은 변화량 글자를 자르면서 스탯 영역 경계를 유지합니다. 실제 클라이언트에서 GUI 배율 2·3의 여백·스크롤·마지막 항목 접근·설명 판정·부착물 비교와 진입·종료 애니메이션을 검증합니다. 외부 모드 파일은 변경하지 않습니다.
