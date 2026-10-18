@@ -149,3 +149,8 @@ Minecraft 1.21.1 Gui.renderCrosshair의 실제 hud/crosshair_attack_indicator_ba
 Minecraft 1.21.1 `AttributeInstance.addOrUpdateTransientModifier/getModifier/removeModifier`와 `ADD_MULTIPLIED_TOTAL`을 확인했습니다. ES 소유의 일시적 이동속도 배율 하나만 적용하며 기본 속도·다른 효과·달리기 상태를 변경하지 않습니다. 서버는 충전 시작 시각을 기준으로 매 틱 판정하고 클라이언트는 같은 설정으로 입력을 예측합니다. 같은 배율이면 수정자를 다시 만들지 않으며 취소·타격·시간 초과·슬롯 변경·메뉴·사망·차원 이동·접속 종료와 설정 재적용 시 제거합니다. 설정은 fullChargeMovementMultiplier(기본 0.4), 아이템별 부분 변경과 /reload를 지원하며 기존 파일에서 생략하면 기본값을 사용합니다.
 
 설치된 TaCZ 1.1.8-hotfix-r7 `HumanoidOffhandRender.renderGun/renderGunItem`의 장착 총기 렌더링 경로와 Player Animator 2.0.4 `FirstPersonMode.isFirstPersonPass`의 ThreadLocal 렌더링 단계 구분을 직접 확인했습니다. ES 어댑터가 본인·본인 카메라·1인칭·실제 1인칭 애니메이션 렌더링 단계일 때만 장착 총기 제출을 생략합니다. 카메라 설정만으로 전체 플레이어 모델을 숨기지 않으므로 제3자·3인칭·인벤토리 미리보기·월드 그림자 렌더링 경로는 유지합니다. Player Animator가 없는 환경에서는 해당 클래스에 접근하지 않습니다. 외부 JAR·모델·설정은 수정하지 않습니다.
+
+
+### 강공격 충전 만료 경고 (0.5.16)
+
+기존 서버 충전 상태와 클라이언트 시간 보간을 사용해 만료 직전 12틱(0.6초)에 여섯 번의 표시 단계를 배치합니다. 0.1초 숨김/표시를 세 번 반복하며 충전 제한이 짧으면 기간을 비례 축소합니다. HUD 시간과 경고 단계는 충전 중 뒤로 이동하지 않아 서버 동기화 보정으로 같은 깜빡임이 반복되지 않습니다. 새 충전·취소·메뉴 전환 때 초기화합니다. 기본 조준선의 쿨타임 지시계는 경고의 숨김 단계에도 억제하여 다른 게이지가 대신 보이지 않게 합니다. 타격·감속·충전 판정과 패킷은 변경하지 않습니다. 실제 클라이언트에서 여섯 표시 단계와 화면 캡처를 확인합니다.
