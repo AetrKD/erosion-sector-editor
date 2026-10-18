@@ -98,3 +98,12 @@ Create 원본 JAR와 포함된 Flywheel·Ponder·Registrate를 사용한 실제 
 `RefitKey`가 `GunRefitScreen`을 여는 경로와 `ClientMessageRefitGun`, `ClientMessageUnloadAttachment`, `ClientMessageLaserColor`의 정적 `handle` 시그니처 및 enqueueWork 이전 호출을 확인했습니다. 화면은 NeoForge `ScreenEvent.Opening`으로 취소하며 세 기본 개조 요청은 선택적 Mixin의 HEAD에서 취소합니다. ES 공개 API 부착·해제와 선택 콜백은 이 패킷을 사용하지 않아 계속 정상 작동합니다. TaCZ 자체 코드·리소스·설정은 변경하지 않습니다.
 
 원본 버튼은 유지하되 떠다니는 툴팁을 호출하지 않습니다. 고정 설명 칸, 가운데 정렬, 전체 패널의 동일 이동, 스탯 전경의 명시적 깊이를 사용합니다. 실제 GUI 배율 2/3와 GPU 캡처의 일곱 막대 픽셀, 기본 개조 화면 차단 및 서버 요청 차단·로비 이탈을 검증합니다.
+
+
+### Create 연결 유리와 아틀라스 좌표 (0.5.10)
+
+설치된 Create NeoForge 1.21.1 6.0.10의 `AllPaletteBlocks`, `WindowGen.framedGlass`, `ConnectedGlassBlock`, `CTModel.getQuads`와 `BakedQuadHelper.clone`을 분석했습니다. `CTModel`은 면을 복사하고 연결 텍스처의 UV 좌표로 바꾸지만 `getSprite()`는 원본 스프라이트를 유지합니다. 기존 ES가 좌표를 원본 경계로 잘라 읽어 큰 유리의 검사 광선 256개가 모두 막히는 것을 실제 클라이언트에서 재현했습니다.
+
+ES는 UV가 원본 스프라이트 범위를 벗어났을 때 NeoForge `TextureAtlas.getTextures()` 공개 API에서 실제 범위를 포함하는 스프라이트를 찾아 사용합니다. 일반 면은 원본 경로를 유지하고, 검색은 512개 제한 캐시에 저장하며 아틀라스 재적용 시 함께 초기화합니다. Create 내부 필드 접근이나 Mixin, 외부 JAR·모델·텍스처 수정은 필요하지 않습니다. 알 수 없는 범위와 지원하지 않는 모델은 기존 안전한 충돌 형태를 유지합니다.
+
+큰 유리·가로 유리·세로 유리·타일 유리를 각 6방향으로 검사하고, 독립 블록의 단면 256개 중 134개가 투과하고 122개가 불투명 무늬에 차단되는 것을 확인했습니다. 연결된 3×3 유리, 실제 손전등 그림자 맵의 유리 뒤 조명·뒤쪽 돌벽 차단, 차광 유리 차단, 캐시 초기화, 기존 엔드 막대·바닐라 및 Create 사다리 검사를 유지합니다. 기본 렌더러와 Iris·Sodium·Complementary Reimagined r5.9.3의 실제 클라이언트에서 검사합니다.
