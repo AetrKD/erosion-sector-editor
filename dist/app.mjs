@@ -10,6 +10,7 @@ import {createTilePreview} from './tile-preview.mjs';
 import {relatedPrograms,updateScanStep,duplicatePlacement,scanCandidates} from './authoring.mjs';
 import {isScan,scanSteps} from './scan.mjs';
 import {createSimulationPanel} from './simulation-panel.mjs';
+import {workflowSteps,workflowMarkup} from './workflow.mjs';
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let project=emptyProject(),tileFolderFiles=null,recoveredProject=null;
@@ -73,7 +74,7 @@ async function setProject(value,message){
   if(tileFolderFiles&&next.tiles.some(t=>t.asset&&!t.asset.bytes)){
     try{next=(await loadTileFolder(next,tileFolderFiles)).project;}catch(error){linkError=error.message;}
   }
-  project=next;undo=[];redo=[];ui.selection=null;ui.returnProgram=null;ui.brush=null;ui.mode='select';ui.floor=0;ui.activeRoomId=project.rooms[0]?.id||'';renderAll();scheduleSave();requestAnimationFrame(()=>map.fit());
+  project=next;undo=[];redo=[];ui.selection=null;ui.returnProgram=null;ui.brush=null;ui.mode='select';ui.workspace='map';ui.tab='tiles';ui.floor=0;ui.activeRoomId=project.rooms[0]?.id||'';renderAll();scheduleSave();requestAnimationFrame(()=>map.fit());
   if(message||linkError)toast([message,linkError&&('타일 원본 연결 실패: '+linkError)].filter(Boolean).join(' '),!!linkError);
 }
 function download(value,filename){const blob=new Blob([value],{type:'application/zip'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
@@ -87,13 +88,17 @@ function confirmChange(title,message,callback){modal(title,`<p>${esc(message)}</
 $('dialogForm').addEventListener('submit',event=>{event.preventDefault();if(modalSubmit){try{if(modalSubmit(new FormData(event.currentTarget))!==false)$('dialog').close();}catch(error){toast(error.message,true);}}});
 function tileThumbnail(tile){const multi=tile.size.y>8,w=tile.size.x>16?64:42,d=tile.size.z>16?30:20;
   return `<svg viewBox="0 0 120 68" aria-hidden="true"><g transform="translate(60 23)"><path d="M0 ${-d/2} L${w/2} 0 L0 ${d/2} L${-w/2} 0Z" fill="#879c92" stroke="#bbccbc" stroke-width=".7"/><path d="M${-w/2} 0 L0 ${d/2} L0 ${d/2+18} L${-w/2} 18Z" fill="#3c5559" stroke="#8aa19b" stroke-width=".6"/><path d="M0 ${d/2} L${w/2} 0 L${w/2} 18 L0 ${d/2+18}Z" fill="#526b6a" stroke="#9db4a7" stroke-width=".6"/>${multi?`<path d="M${-w/2} 9 L0 ${d/2+9} L${w/2} 9" fill="none" stroke="#c9d6b8" stroke-width="1"/>`:''}<path d="M${w/4} ${d/4+5} v10 l6 -3 v-10Z" fill="#16232b" stroke="#bcd5b7" stroke-width=".8"/></g></svg>`;}
+function gimmickCards(){
+  const groups=[['진입과 탈출',['spawn','extraction']],['스캔과 이벤트',['scan','trigger','alarm','wave']],['보급과 목표',['supply','cargo','keycard']],['적 배치',['sleeper']]];
+  return groups.map(([name,types])=>`<h3 class="gimmick-group-title">${name}</h3>${types.map(type=>{const kind=KINDS[type];return `<button class="gimmick-card ${ui.brush?.kind==='gimmick'&&ui.brush.id===type?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-gimmick-type="${type}"><span class="gimmick-icon" style="color:${kind.color}">${kind.icon}</span><div><strong>${kind.label}</strong><small>${GIMMICK_DESCRIPTIONS[type]}</small></div></button>`;}).join('')}`).join('');
+}
 function renderLibrary(){
-  document.querySelectorAll('[data-tab]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.tab===ui.tab)));
+  document.querySelectorAll('[data-tab]').forEach(button=>{button.setAttribute('aria-selected',String(button.dataset.tab===ui.tab));button.tabIndex=button.dataset.tab===ui.tab?0:-1;});
   if(ui.tab==='tiles'){
     $('libraryContent').innerHTML=`<button class="button full" data-action="import-nbt">↑ Create 설계도 가져오기</button><div style="height:12px"></div><input class="search" id="tileSearch" placeholder="타일 이름 검색…" aria-label="타일 이름 검색" value="${esc(ui.search)}"><div class="section-label"><span>타일 라이브러리</span><span>${project.tiles.length}</span></div><div id="tileList"></div><button class="subtle-button" data-action="new-tile">＋ 설계용 타일 만들기</button>`;
     renderTileList();
   }else if(ui.tab==='gimmicks'){
-    $('libraryContent').innerHTML=`<div class="section-label"><span>기믹 배치</span><span>${project.gimmicks.length}</span></div><small>기믹을 타일 안으로 끌어 놓거나, 고른 뒤 배치도를 클릭하세요.</small><div style="height:14px"></div>${Object.entries(KINDS).filter(([type])=>type!=='terminal').map(([type,kind])=>`<button class="gimmick-card ${ui.brush?.kind==='gimmick'&&ui.brush.id===type?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-gimmick-type="${type}"><span class="gimmick-icon" style="color:${kind.color}">${kind.icon}</span><div><strong>${kind.label}</strong><small>${GIMMICK_DESCRIPTIONS[type]}</small></div></button>`).join('')}<div class="divider"></div><div class="section-label">배치된 기믹</div>${project.gimmicks.map(g=>`<button class="room-card ${ui.selection?.id===g.id?'selected':''}" data-select-kind="gimmick" data-select-id="${esc(g.id)}"><span style="color:${KINDS[g.type].color}">${KINDS[g.type].icon}</span><div><strong>${esc(g.name)}</strong><small>${esc(KINDS[g.type].label)}</small></div></button>`).join('')}`;
+    $('libraryContent').innerHTML=`<div class="section-label"><span>기믹 배치</span><span>${project.gimmicks.length}</span></div><small>기믹을 타일 안으로 끌어 놓거나, 고른 뒤 배치도를 클릭하세요.</small><div style="height:14px"></div>${gimmickCards()}<div class="divider"></div><div class="section-label">배치된 기믹</div>${project.gimmicks.map(g=>`<button class="room-card ${ui.selection?.id===g.id?'selected':''}" data-select-kind="gimmick" data-select-id="${esc(g.id)}"><span style="color:${KINDS[g.type].color}">${KINDS[g.type].icon}</span><div><strong>${esc(g.name)}</strong><small>${esc(KINDS[g.type].label)}</small></div></button>`).join('')}`;
   }else if(ui.tab==='events'){
     $('libraryContent').innerHTML=logicEditor.library();
   }else{
@@ -109,7 +114,7 @@ function renderAreaTree(){
     const matches=(room.code+' '+room.name).toLowerCase().includes(query),children=room.children.filter(p=>matches||(p.areaCode+' '+p.name+' '+p.tileName+' '+p.gimmicks.map(g=>g.name).join(' ')).toLowerCase().includes(query));
     if(query&&!matches&&!children.length)return '';
     return `<details class="area-folder ${ui.activeRoomId===room.id?'active-area':''}" data-folder="${esc(room.id)}" ${!closedAreas.has(room.id)||query?'open':''}><summary><button class="tree-folder-select" data-room="${esc(room.id)}"><span class="folder-symbol" style="color:${room.color}">▰</span><span><strong>${esc(areaLabel(room))}</strong><small>${esc(room.name)} · ${room.children.length}개 타일</small></span></button><button class="icon-button" data-select-kind="room" data-select-id="${esc(room.id)}" aria-label="${esc(areaLabel(room))} 속성">⋯</button></summary><div class="tree-children">${children.map(leaf).join('')||'<small class="tree-empty">이 구역에 타일을 배치하세요.</small>'}</div></details>`;
-  }).join('')||'<div class="empty-state">검색 결과가 없습니다.</div>';
+  }).join('')||(project.tiles.length?'<div class="empty-state">검색 결과가 없습니다.</div>':'<div class="empty-state">등록된 타일이 없습니다.<br>폴더를 연결하거나 아래에서 설계용 타일을 만드세요.</div>');
   const orphan=project.placements.filter(p=>!project.rooms.some(r=>r.id===p.roomId));
   if(orphan.length)target.insertAdjacentHTML('beforeend',`<div class="note warning">구역 미지정</div>${orphan.map(p=>leaf({...p,tileName:tileOf(project,p)?.name||'없는 타일',gimmicks:project.gimmicks.filter(g=>g.placementId===p.id)})).join('')}`);
 }
@@ -117,7 +122,7 @@ function renderTileList(){
   if(!$('tileList'))return;
   const tiles=project.tiles.filter(t=>(t.name+' '+t.category).toLowerCase().includes(ui.search.toLowerCase()));
   const groups=new Map();for(const tile of tiles){const folder=tile.asset?.reference?.split('/').slice(0,-1).join('/')||'설계용 · 미연결';if(!groups.has(folder))groups.set(folder,[]);groups.get(folder).push(tile);}
-  const card=tile=>`<button class="tile-card ${ui.brush?.id===tile.id?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-library-tile="${esc(tile.id)}"><div class="tile-preview"><span class="tile-kind">${esc(tile.category)}</span><span class="tile-status ${tile.asset?'real':''}">${tile.asset?'NBT 연결됨':'설계용'}</span>${tileThumbnail(tile)}</div><div class="tile-info"><div><strong>${esc(tile.name)}</strong><small>${tile.size.x} × ${tile.size.z} × 높이 ${tile.size.y} · 문 ${tile.ports.length}</small></div><span class="tile-dots">↗</span></div></button>`;
+  const card=tile=>`<button class="tile-card ${ui.brush?.id===tile.id?'selected':''}" draggable="true" title="지도로 끌어 배치하거나 클릭해서 선택" data-library-tile="${esc(tile.id)}"><div class="tile-preview"><span class="tile-kind">${esc(tile.category)}</span><span class="tile-status ${tile.asset?'real':''}">${tile.asset?(tile.asset.bytes?'원본 연결됨':'원본 미연결'):'설계용'}</span>${tileThumbnail(tile)}</div><div class="tile-info"><div><strong>${esc(tile.name)}</strong><small>${tile.size.x} × ${tile.size.z} × 높이 ${tile.size.y} · 문 ${tile.ports.length}</small></div><span class="tile-dots">↗</span></div></button>`;
   $('tileList').innerHTML=[...groups].map(([folder,items])=>`<details class="tileset-folder" open><summary>▰ ${esc(folder)} <span>${items.length}</span></summary>${items.map(card).join('')}</details>`).join('')||'<div class="empty-state">검색 결과가 없습니다.</div>';
 }
 function renderFloors(){
@@ -137,7 +142,26 @@ function renderAll(){
   const issues=validate(project),errors=issues.filter(i=>i.severity==='error').length,warnings=issues.filter(i=>i.severity==='warning').length;
   $('validationSummary').textContent=errors?`⊗ 수정 필요 ${errors} · 주의 ${warnings}`:warnings?`△ 설계도 연결 등 확인 ${warnings}`:'✓ 배치 검사 통과';
   $('validationSummary').className='validation-summary '+(errors?'error':warnings?'':'good');
+  renderWorkflow(issues);
   renderLibrary();renderFloors();renderInspector();if(ui.workspace==='events')logicEditor.render();else logicEditor.close();$('canvasWrap').hidden=ui.workspace!=='map';document.querySelector('.floor-bar').hidden=ui.workspace!=='map';$('tilePreviewPanel').hidden=ui.workspace!=='preview';tilePreview.draw();map.draw();
+}
+function renderWorkflow(issues=validate(project)){
+  const steps=workflowSteps(project,issues),done=steps.filter(s=>s.done).length,next=steps.find(s=>!s.done);
+  $('workflowCount').textContent=`${done}/${steps.length}`;$('workflowNext').textContent=next?'다음: '+next.title:'제작 체크리스트';
+  document.querySelectorAll('button[data-workspace],button[data-workspace-tab]').forEach(button=>{if((button.dataset.workspace||button.dataset.workspaceTab)===ui.workspace)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+  document.querySelector('.editor').dataset.workspace=ui.workspace;
+  const context=$('workspaceContext');context.hidden=ui.workspace==='map';context.innerHTML=(ui.workspace==='preview'?'개별 NBT 설계도의 모양을 확인합니다. 배치 지도에서는 크기와 문 위치를 사용합니다.':'조건이 충족됐을 때 실행할 동작을 블록으로 연결하세요.')+'<button data-workspace="map">배치 지도로 돌아가기</button>';
+  const placing=ui.workspace==='map'&&ui.brush&&['paint','gimmick'].includes(ui.mode);$('placementBanner').hidden=!placing;
+  if(placing){const name=ui.brush.kind==='tile'?project.tiles.find(t=>t.id===ui.brush.id)?.name:KINDS[ui.brush.id]?.label;$('placementHint').textContent=ui.brush.kind==='tile'?`${name||'타일'} · ${ui.brush.rotation||0}° — 지도에 클릭해서 배치 · R 회전`:`${name||'기믹'} — 배치된 타일 안을 클릭하세요`;}
+  $('emptyMap').hidden=ui.workspace!=='map'||project.placements.length>0||!!placing;
+  $('emptyMapHint').textContent=project.tiles.length?'왼쪽 라이브러리의 타일을 지도로 끌어 놓으세요. 타일을 고른 뒤 격자를 클릭해도 됩니다.':'Create에서 만든 assets/tile 폴더를 연결하거나, 설계용 타일부터 만들어 시작하세요.';
+}
+function workflowDialog(){modal('스테이지 제작 체크리스트',`<p class="workflow-note">현재 작업을 기준으로 남은 단계를 표시합니다. 항목을 누르면 해당 작업으로 이동합니다.</p>${workflowMarkup(workflowSteps(project,validate(project)),esc)}<div class="workflow-note">알람·조명·문 연동은 <b>이벤트 편집</b>에서 구성하고 <b>모의 실행</b>으로 확인하세요.<br>자동 저장은 이 브라우저의 복원본입니다. <b>스테이지 저장</b>으로 받은 <code>.esfile</code>을 작업 폴더의 <code>stage/</code>에 보관하세요. 타일 원본은 <code>assets/tile/타일셋/타일.nbt</code>에 따로 둡니다.</div>`,null);}
+function guideTo(id){
+  $('dialog').close();ui.workspace='map';ui.mode='select';ui.brush=null;
+  ui.tab=id==='gimmicks'?'gimmicks':'tiles';renderAll();
+  if(id==='mission'){actions.mission();return;}if(id==='validation'){validationDialog();return;}
+  if(id==='tiles')actions['tile-folder']();else if(id==='draft')actions['new-tile']();else if(innerWidth<620)$('libraryPanel').classList.add('visible');
 }
 function renderInspector(){
   const sel=ui.selection,container=$('inspectorContent');
@@ -163,7 +187,7 @@ function renderInspector(){
     const z=project.zones.find(z=>z.id===sel.id);if(!z){ui.selection=null;return renderInspector();}
     container.innerHTML=`<div class="inspect-kicker">ZONE</div><h3 class="inspect-title">${esc(z.name)}</h3>${propField('구역 이름','name',z.name,'text','required maxlength="80"')}${propField('구역 색상','color',z.color,'color')}<div class="note subtle">방은 소속 구역으로 묶입니다. 방의 세부 색상은 방 속성에서 설정합니다.</div>`;
   }else{
-    const network=connections(project);container.innerHTML=`<div class="inspect-kicker">STAGE OVERVIEW</div><h3 class="inspect-title">${esc(project.name)}</h3><p class="inspect-description">${esc(project.description||'스테이지 설정에서 임무 설명을 입력하세요.')}</p><dl class="stage-metadata"><div><dt>작성자</dt><dd>${esc(project.author||'미지정')}</dd></div><div><dt>챕터명</dt><dd>${esc(project.chapter.name||'미지정')}</dd></div><div><dt>난이도</dt><dd>${esc(project.difficulty||'미지정')}</dd></div></dl><div class="metric-grid"><div class="metric"><small>배치된 타일</small><b>${project.placements.length}<span style="font-size:10px;color:#8298a5"> 개</span></b></div><div class="metric"><small>연결된 문</small><b>${network.pairs.length}<span style="font-size:10px;color:#8298a5"> 쌍</span></b></div></div><button class="button full" data-action="project">스테이지 설정</button><button class="button primary full" data-action="mission" style="margin-top:8px">임무 목표와 탈출 · ${project.objectives.length}개</button><button class="button full" data-action="events" style="margin-top:8px">블록 이벤트 편집 · ${project.programs.length}개</button><div class="divider"></div><div class="section-title">임무 흐름</div>${project.gimmicks.filter(g=>['spawn','alarm','scan','extraction'].includes(g.type)).map((g,i)=>`<button class="room-card" data-select-kind="gimmick" data-select-id="${esc(g.id)}"><span class="flow-number">${i+1}</span><div><strong>${esc(g.name)}</strong><small>${esc(KINDS[g.type].label)}</small></div></button>`).join('')||'<small>기믹 탭에서 시작점과 목표를 추가하세요.</small>'}<div class="divider"></div><div class="section-title">작업 순서</div><div class="flow-item"><span class="flow-number">1</span><div><strong>타일 배치</strong><small>라이브러리에서 고른 후 격자를 클릭</small></div></div><div class="flow-item"><span class="flow-number">2</span><div><strong>층과 문 연결 확인</strong><small>높이가 같은 연결구끼리 자동 판정</small></div></div><div class="flow-item"><span class="flow-number">3</span><div><strong>기믹과 임무 흐름 지정</strong><small>장치를 놓고 이벤트 연결</small></div></div><div class="note warning">현재 예시 타일은 공간 설계용입니다. 게임에서 실행하려면 실제 설계도를 연결하고 모드 0.4.0 이상을 사용하세요.</div>`;
+    const network=connections(project);container.innerHTML=`<div class="inspect-kicker">STAGE OVERVIEW</div><h3 class="inspect-title">${esc(project.name)}</h3><p class="inspect-description">${esc(project.description||'스테이지 설정에서 임무 설명을 입력하세요.')}</p><dl class="stage-metadata"><div><dt>작성자</dt><dd>${esc(project.author||'미지정')}</dd></div><div><dt>챕터명</dt><dd>${esc(project.chapter.name||'미지정')}</dd></div><div><dt>난이도</dt><dd>${esc(project.difficulty||'미지정')}</dd></div></dl><div class="metric-grid"><div class="metric"><small>배치된 타일</small><b>${project.placements.length}<span style="font-size:10px;color:#8298a5"> 개</span></b></div><div class="metric"><small>연결된 문</small><b>${network.pairs.length}<span style="font-size:10px;color:#8298a5"> 쌍</span></b></div></div><button class="button full" data-action="project">스테이지 설정</button><button class="button primary full" data-action="mission" style="margin-top:8px">임무 목표와 탈출 · ${project.objectives.length}개</button><button class="button full" data-action="events" style="margin-top:8px">블록 이벤트 편집 · ${project.programs.length}개</button><div class="divider"></div><div class="section-title">임무 흐름</div>${project.gimmicks.filter(g=>['spawn','alarm','scan','extraction'].includes(g.type)).map((g,i)=>`<button class="room-card" data-select-kind="gimmick" data-select-id="${esc(g.id)}"><span class="flow-number">${i+1}</span><div><strong>${esc(g.name)}</strong><small>${esc(KINDS[g.type].label)}</small></div></button>`).join('')||'<small>기믹 탭에서 시작점과 목표를 추가하세요.</small>'}<div class="divider"></div><div class="section-title">작업 순서</div><div class="flow-item"><span class="flow-number">1</span><div><strong>타일 배치</strong><small>라이브러리에서 고른 후 격자를 클릭</small></div></div><div class="flow-item"><span class="flow-number">2</span><div><strong>층과 문 연결 확인</strong><small>높이가 같은 연결구끼리 자동 판정</small></div></div><div class="flow-item"><span class="flow-number">3</span><div><strong>기믹과 임무 흐름 지정</strong><small>장치를 놓고 이벤트 연결</small></div></div><div class="note warning">${project.tiles.some(t=>!t.asset?.bytes)?"원본이 연결되지 않은 타일이 있습니다. 게임에서 실행하기 전에 타일 폴더를 연결하고 검사 결과를 확인하세요.":"스테이지 저장으로 .esfile 파일을 내려받으세요. 자동 저장은 이 브라우저의 복원본입니다."}</div>`;
   }
   if(sel&&['placement','door','gimmick','room'].includes(sel.kind)){
     const refs=relatedPrograms(project,sel);
@@ -230,8 +254,10 @@ function coordinateDialog(){const tile=project.tiles.find(t=>t.id===ui.brush?.id
     const p={id:uid('placement'),tileId:tile.id,x:Number(data.get('x'))/16,y:Number(data.get('y')),z:Number(data.get('z'))/16,rotation:Number(data.get('rotation')),roomId:data.get('roomId'),name:''},error=placementError(project,p);
     if(error){toast(error,true);return false;}ui.selection={kind:'placement',id:p.id};ui.floor=p.y;return commit(pj=>pj.placements.push(p));},'배치');}
 function validationDialog(){const issues=validate(project),errors=issues.filter(i=>i.severity==='error').length;modal('스테이지 검사',`<p>${errors?`수정할 항목이 ${errors}개 있습니다.`:'공간 배치와 기믹 참조를 검사했습니다.'}</p>${issues.map((i,index)=>`<button type="button" class="issue ${i.severity}" data-issue="${index}"><span>${{error:'⊗',warning:'△',info:'ⓘ'}[i.severity]}</span><span>${esc(i.message)}</span></button>`).join('')}`,null);}
-function helpDialog(){modal('Erosion Sector 제작 가이드',`<p>Create 설계도로 만든 공간을 타일로 등록하고, 방과 기믹을 조립하는 도구입니다.</p><div class="section-title">타일 제작과 가져오기</div><p>Create에서 영역을 저장하세요. 크기는 <b>가로·깊이는 자유 크기, 높이는 8의 배수</b>여야 합니다. 타일 탭의 ‘설계도 가져오기’에서 .nbt를 선택합니다. 파일은 브라우저에서 읽습니다. 타일 원본은 외부 assets/tile 폴더에 보관하고 .esfile에는 상대 경로와 확인용 해시만 기록합니다.</p><p>설계도의 가로·깊이는 양의 정수, 높이는 8의 배수여야 하며 외곽에 Erosion Sector 문이 최소 하나 있어야 합니다. 4×4·6×4·10×6 문 구동부 행을 읽고, 양쪽 접근 조건은 각각 보존합니다. 실제 설계도에서는 공기를 제외한 블록의 겹침을 검사합니다. 공기는 다른 타일을 덮어쓰지 않는 배치 규칙으로 내보냅니다. X/Z 배치 좌표는 블록 단위입니다.</p><div class="section-title">배치와 복층</div><p>타일을 고르고 격자를 클릭하세요. <span class="guide-key">V</span> 선택, <span class="guide-key">B</span> 배치, <span class="guide-key">R</span> 수평 회전, <span class="guide-key">Del</span> 삭제입니다. 휠로 확대하고 Space+드래그로 화면을 이동합니다. 속성에서 좌표를 입력할 수도 있습니다.</p><p>층 탭은 같은 입체 타일을 높이 8블록 단위로 나눠 보여줍니다. 위아래 공간이 겹치지 않으면 같은 XZ에 배치할 수 있습니다. 문은 동서남북으로만 연결되며 실제 위치와 크기가 맞아야 합니다.</p><div class="section-title">저장과 실행</div><p>스테이지 설정에서 작성자·챕터 이름·난이도·스테이지 이름·설명을 편집합니다. 난이도는 자유롭게 입력하며, 같은 챕터의 스테이지에는 같은 챕터 ID와 이름을 사용하세요. ‘스테이지 저장’으로 이 정보와 타일 배치·방·기믹을 .esfile 하나에 저장합니다. 별도의 프로젝트 파일이나 외부 stage.json은 필요 없습니다. 타일 NBT는 묶음에 넣지 않으며 assets/tile 폴더 기준 타일셋/타일이름.nbt 경로로 참조합니다. 불러온 뒤 ‘타일 폴더 연결’에서 assets/tile 폴더를 선택하면 원본을 찾습니다. 같은 파일명이 다른 타일셋에 있어도 전체 상대 경로로 구분합니다.</p><div class="note warning">이 앱은 배치 설계 도구입니다. 설계도 미리보기는 실제 블록 좌표를 간단한 색상 육면체로 보여주며, 모드 0.4.0에서는 설정 파일을 읽어 임무 차원을 구성합니다. 사이트와 로컬 앱의 자동 저장 공간은 서로 다르므로 파일로 이동하세요.</div><div class="section-title">게임에서 실행</div><p>기본 작업 폴더인 마인크래프트의 es 폴더 안에 <code>assets/tile/타일셋/타일.nbt</code>와 <code>stage/미션.esfile</code>을 둡니다. 다른 작업 폴더는 <code>/erosionsector stage workspace 경로</code>로 지정할 수 있습니다. <code>/erosionsector stage check 미션.esfile</code>로 검사한 뒤 <code>/erosionsector stage start 미션.esfile</code>로 출발하세요.  임무는 서버당 하나이며 로비 방장 또는 로비 미가입 솔로로 시작합니다. 방장이 나가면 실패하고 원래 위치로 복귀합니다.</p><p>실물 기믹은 타일 내부의 빈 공간에 놓으세요. 시작점은 블록 없는 투하 좌표이며, 스캔은 별도의 원형 바닥 영역입니다. 보안 문 시도·터미널 명령어·화물 들기·키카드 획득을 이벤트에 연결할 수 있습니다.</p>`,null);}
+function helpDialog(){modal('사용 가이드',`<p>스테이지 파일 하나에 타일 배치·구역·기믹·목표·이벤트가 저장됩니다. 타일 NBT 원본은 별도 폴더에서 이름과 경로로 참조합니다.</p><div class="section-title workflow-section">처음 만드는 순서</div><p>타일 폴더 연결 → 지도에 드래그해서 배치 → 시작점·탈출 지점 배치 → 임무 목표 → 필요한 이벤트 → 검사·저장 순서로 진행하세요.</p><button type="button" class="button full" data-action="workflow">내 작업의 제작 체크리스트 열기</button><div class="section-title workflow-section">어떤 메뉴를 사용하나요?</div><p><b>배치 지도</b>: 타일 크기와 문의 위치로 배치합니다. 복층 타일은 층을 바꿔 확인하며, 평면·입체 보기에서 회전할 수 있습니다.<br><b>타일 미리보기</b>: 개별 Create NBT 설계도의 블록 배치를 확인합니다. 모드 블록의 정확한 외형·동작은 게임에서 확인하세요.<br><b>이벤트 편집</b>: 발생 조건과 실행 동작을 블록으로 연결합니다. 모의 실행으로 목표·문·스캔의 연결을 확인할 수 있습니다.</p><div class="section-title workflow-section">파일은 어디에 저장하나요?</div><p>작업 폴더 안에 <code>assets/tile/타일셋/타일.nbt</code>와 <code>stage/미션.esfile</code>을 둡니다. 이 사이트는 파일을 서버로 업로드하지 않습니다. 폴더 선택은 읽기 전용 연결이고, <b>스테이지 저장</b>은 다운로드입니다. 브라우저 자동 저장은 이 주소의 복원본이므로 다른 PC·주소로 옮길 때는 .esfile 파일을 사용하세요.</p><div class="section-title workflow-section">주요 단축키</div><p><kbd>V</kbd> 선택 · <kbd>B</kbd> 배치 · <kbd>R</kbd> 회전 · <kbd>Del</kbd> 삭제<br><kbd>Esc</kbd> 배치 취소 · <kbd>Space + 드래그</kbd> 화면 이동<br><kbd>Ctrl Z</kbd> 실행 취소 · <kbd>Ctrl Y</kbd> 다시 실행 · <kbd>Ctrl S</kbd> 파일 저장</p><div class="section-title workflow-section">게임에서 실행</div><p>모드 0.5.0 이상에서 기본 <code>es/</code> 작업 폴더를 읽습니다. <code>/erosionsector stage check 미션.esfile</code>로 검사하고 <code>/erosionsector stage start 미션.esfile</code>로 출발합니다. 다른 작업 폴더는 <code>/erosionsector stage workspace 경로</code>로 지정합니다. 진입은 시작점에 즉시 투하하며 스캔은 별도 블록 없이 바닥에 나타납니다.</p>`,null);}
 const actions={
+  'workflow':workflowDialog,
+  'cancel-placement':()=>{ui.brush=null;ui.mode='select';renderAll();},
   'new':()=>confirmChange('새 스테이지','현재 작업 대신 빈 스테이지를 엽니다.',()=>setProject(emptyProject(),'빈 스테이지를 열었습니다.')),
   'sample':()=>confirmChange('예시 스테이지','A1 · 잠든 관측소의 예시 구성을 엽니다.',()=>setProject({...demoProject(),id:uid('stage')},'예시 스테이지를 열었습니다.')),
   'open':()=>$('projectInput').click(),
@@ -270,6 +296,10 @@ const actions={
 };
 document.addEventListener('click',event=>{
   const button=event.target.closest('button');if(!button||button.disabled)return;
+  if(button.closest('#fileMenu'))$('fileMenu').open=false;
+  if(button.dataset.fileCommand){actions[button.dataset.fileCommand]?.();return;}
+  if(button.dataset.guide){guideTo(button.dataset.guide);return;}
+  if(button.dataset.workspace){ui.workspace=button.dataset.workspace;if(ui.tab==='events')ui.tab='tiles';renderAll();return;}
   if(button.dataset.relatedProgram){logicEditor.choose(button.dataset.relatedProgram,button.dataset.relatedNode);return;}
   if(button.dataset.scanFocus!==undefined){const g=project.gimmicks.find(g=>g.id===ui.selection?.id);if(!g)return;const index=Number(button.dataset.scanFocus),step=scanSteps(g)[index],p=project.placements.find(p=>p.id===step.placementId),t=p&&tileOf(project,p);ui.selection={kind:'gimmick',id:g.id,step:index};ui.workspace='map';ui.view='plan';ui.mode='select';if(t){ui.floor=Math.floor(worldPoint(step.position,t,p).y/8);map.focus(p,true);}renderAll();return;}
   if(button.hasAttribute('data-scan-add')||button.hasAttribute('data-scan-remove')){
@@ -285,7 +315,7 @@ document.addEventListener('click',event=>{
   if(button.dataset.mode){ui.workspace='map';ui.mode=button.dataset.mode;if(ui.mode==='paint'&&ui.brush?.kind!=='tile'){ui.brush={kind:'tile',id:project.tiles[0]?.id,rotation:0};}ui.view='plan';renderAll();return;}
   if(button.dataset.view){ui.workspace='map';ui.view=button.dataset.view;renderAll();return;}
   if(button.dataset.floor!==undefined){ui.floor=Number(button.dataset.floor);renderFloors();map.draw();return;}
-  if(button.dataset.gimmickType){ui.brush={kind:'gimmick',id:button.dataset.gimmickType};ui.mode='gimmick';ui.view='plan';renderAll();if(innerWidth<620)$('libraryPanel').classList.remove('visible');return;}
+  if(button.dataset.gimmickType){ui.workspace='map';ui.brush={kind:'gimmick',id:button.dataset.gimmickType};ui.mode='gimmick';ui.view='plan';renderAll();if(innerWidth<620)$('libraryPanel').classList.remove('visible');return;}
   if(button.dataset.room){ui.activeRoomId=button.dataset.room;selectTarget('room',button.dataset.room);return;}
   if(button.dataset.selectKind){selectTarget(button.dataset.selectKind,button.dataset.selectId);return;}
   if(button.dataset.editPort){portDialog(button.dataset.editPort);return;}
@@ -293,15 +323,20 @@ document.addEventListener('click',event=>{
   if(button.dataset.deleteLink){commit(p=>p.links=p.links.filter(l=>l.id!==button.dataset.deleteLink));return;}
   if(button.dataset.issue!==undefined){const issue=validate(project)[Number(button.dataset.issue)];if(issue?.target){$('dialog').close();selectTarget(issue.target.kind,issue.target.id);}return;}
 });
+document.addEventListener('click',event=>{if(!event.target.closest('#fileMenu'))$('fileMenu').open=false;});
+document.querySelector('.tabs').addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=[...document.querySelectorAll('[data-tab]')],index=tabs.indexOf(event.target);if(index<0)return;
+  event.preventDefault();const at=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[at].click();tabs[at].focus();
+});
 document.addEventListener('input',event=>{if(event.target.id==='tileSearch'){ui.search=event.target.value;renderTileList();}if(event.target.id==='areaSearch'){ui.areaSearch=event.target.value;renderAreaTree();}});
 document.addEventListener('toggle',event=>{if(!event.target.matches?.('.area-folder'))return;const id=event.target.dataset.folder;if(event.target.open)closedAreas.delete(id);else closedAreas.add(id);},true);
 let paletteSource=null,paletteWorkspaceChanged=false;
-function finishPaletteDrag(){if(!paletteSource)return;paletteSource.classList.remove('palette-dragging');paletteSource=null;map.endPaletteDrag();if(paletteWorkspaceChanged){paletteWorkspaceChanged=false;renderAll();}}
+function finishPaletteDrag(){if(!paletteSource)return;paletteSource.classList.remove('palette-dragging');paletteSource=null;map.endPaletteDrag();renderWorkflow();if(paletteWorkspaceChanged){paletteWorkspaceChanged=false;renderAll();}}
 document.addEventListener('dragstart',event=>{
   const source=event.target.closest('[data-library-tile],[data-gimmick-type]');if(!source)return;
   const brush=source.dataset.libraryTile?{kind:'tile',id:source.dataset.libraryTile,rotation:ui.brush?.kind==='tile'&&ui.brush.id===source.dataset.libraryTile?ui.brush.rotation||0:0}:{kind:'gimmick',id:source.dataset.gimmickType};
   event.dataTransfer.setData(PALETTE_MIME,JSON.stringify(brush));event.dataTransfer.effectAllowed='copy';paletteSource=source;source.classList.add('palette-dragging');
-  paletteWorkspaceChanged=ui.workspace!=='map';ui.workspace='map';$('canvasWrap').hidden=false;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
+  paletteWorkspaceChanged=ui.workspace!=='map';ui.workspace='map';$('canvasWrap').hidden=false;$('emptyMap').hidden=true;$('placementBanner').hidden=true;document.querySelector('.floor-bar').hidden=false;$('tilePreviewPanel').hidden=true;logicEditor.close();renderFloors();map.beginPaletteDrag(brush);
 });
 document.addEventListener('dragend',finishPaletteDrag);
 document.addEventListener('drop',finishPaletteDrag);
@@ -336,6 +371,7 @@ $('nbtInput').addEventListener('change',async event=>{
 $('projectInput').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{if(!/\.esfile$/i.test(file.name))throw new Error('.esfile 스테이지 파일을 선택하세요.');if(file.size>64*1024*1024)throw new Error('스테이지는 64MB 이하로 가져오세요.');$('welcome').close();await setProject(unpackStage(await file.arrayBuffer()),'스테이지를 불러왔습니다. 타일 원본이 없으면 타일 폴더를 연결하세요.');}catch(error){toast(error.message,true);}event.target.value='';});
 $('tileFolderInput').addEventListener('change',async event=>{const files=[...event.target.files];try{toast('타일 폴더 읽는 중…');const result=await loadTileFolder(project,files);if(commit(p=>Object.assign(p,result.project),`타일 폴더 연결: ${result.linked}개 복원 · ${result.added}개 추가`))tileFolderFiles=files;}catch(error){toast(error.message,true);}event.target.value='';});
 window.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&$('fileMenu').open){$('fileMenu').open=false;$('fileMenu').querySelector('summary').focus();return;}
   if($('dialog').open)return;
   const editable=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);if(editable)return;
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();actions.save();return;}
@@ -346,7 +382,7 @@ window.addEventListener('keydown',event=>{
   switch(event.key.toLowerCase()){
     case 'v':ui.mode='select';renderAll();break;
     case 'b':ui.mode='paint';if(ui.brush?.kind!=='tile')ui.brush={kind:'tile',id:project.tiles[0]?.id,rotation:0};ui.view='plan';renderAll();break;
-    case 'r':event.preventDefault();if(ui.mode==='paint'&&ui.brush?.kind==='tile'){ui.brush.rotation=((ui.brush.rotation||0)+90)%360;map.draw();toast(`배치 방향 ${ui.brush.rotation}°`);}else actions.rotate();break;
+    case 'r':event.preventDefault();if(ui.mode==='paint'&&ui.brush?.kind==='tile'){ui.brush.rotation=((ui.brush.rotation||0)+90)%360;renderWorkflow();map.draw();toast(`배치 방향 ${ui.brush.rotation}°`);}else actions.rotate();break;
     case 'd':actions.duplicate();break;
     case 'delete':case 'backspace':event.preventDefault();actions.delete();break;
     case 'escape':ui.mode='select';ui.brush=null;ui.selection=null;renderAll();break;
