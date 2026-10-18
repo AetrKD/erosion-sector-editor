@@ -142,3 +142,10 @@ ES 자체 `EquipmentHudLayout`의 고정 폭을 176에서 128 논리 픽셀로 �
 주변 클라이언트에는 서버가 승인한 준비·타격·취소 상태를 ES 패킷으로 전달합니다. 강공격 범위에서만 Better Combat의 시작 모션 패킷을 억제해 관전자에게 준비 동작이 중복 재생되지 않게 합니다. 일반 공격·원본 레지스트리·외부 JAR·에셋·설정은 변경하지 않습니다. 취소·시간 초과·아이템 변경·메뉴·접속 종료를 정리합니다.
 
 Minecraft 1.21.1 Gui.renderCrosshair의 실제 hud/crosshair_attack_indicator_background 및 progress 스프라이트와 좌표·블렌딩을 재사용합니다. 충전 게이지가 보일 때만 기본 공격 지시계를 숨기며 조준선과 나머지 HUD는 유지합니다. 표시된 실제 클라이언트에서 준비·최대 유지·타격·시간 초과·메뉴 취소·한손/양손 설정 재적용을 확인합니다.
+
+
+### 충전 감속·1인칭 장착 총기 표시 (0.5.15)
+
+Minecraft 1.21.1 `AttributeInstance.addOrUpdateTransientModifier/getModifier/removeModifier`와 `ADD_MULTIPLIED_TOTAL`을 확인했습니다. ES 소유의 일시적 이동속도 배율 하나만 적용하며 기본 속도·다른 효과·달리기 상태를 변경하지 않습니다. 서버는 충전 시작 시각을 기준으로 매 틱 판정하고 클라이언트는 같은 설정으로 입력을 예측합니다. 같은 배율이면 수정자를 다시 만들지 않으며 취소·타격·시간 초과·슬롯 변경·메뉴·사망·차원 이동·접속 종료와 설정 재적용 시 제거합니다. 설정은 fullChargeMovementMultiplier(기본 0.4), 아이템별 부분 변경과 /reload를 지원하며 기존 파일에서 생략하면 기본값을 사용합니다.
+
+설치된 TaCZ 1.1.8-hotfix-r7 `HumanoidOffhandRender.renderGun/renderGunItem`의 장착 총기 렌더링 경로와 Player Animator 2.0.4 `FirstPersonMode.isFirstPersonPass`의 ThreadLocal 렌더링 단계 구분을 직접 확인했습니다. ES 어댑터가 본인·본인 카메라·1인칭·실제 1인칭 애니메이션 렌더링 단계일 때만 장착 총기 제출을 생략합니다. 카메라 설정만으로 전체 플레이어 모델을 숨기지 않으므로 제3자·3인칭·인벤토리 미리보기·월드 그림자 렌더링 경로는 유지합니다. Player Animator가 없는 환경에서는 해당 클래스에 접근하지 않습니다. 외부 JAR·모델·설정은 수정하지 않습니다.
