@@ -163,3 +163,8 @@ Minecraft 1.21.1 `AttributeInstance.addOrUpdateTransientModifier/getModifier/rem
 EffectiveRangeModifier.getPropertyDiagramsData의 defaultString은 다른 행과 달리 보정 전 기준 거리였습니다. ES는 동기화된 총기와 정확한 미리보기 스택으로 평가한 AttachmentCacheProperty.getCache(GunProperties.EFFECTIVE_RANGE)의 최종값을 읽고 원본과 같은 소수 1자리·m·1024 상한으로 표시합니다. 팬텀 S1 원본 effective_range.multiplier=1.5를 확인하고 AK-47에서 30.0m→45.0m를 검증했습니다. 관통력은 원본 PierceModifier의 최종 표시를 사용하며 방어 무시와 별도 행입니다.
 
 장착 슬롯 호버는 해당 외부 부착물만 제거한 복사본을 캐시해 현재 장착 효과를 비교합니다. 후보 호버는 기존처럼 슬롯을 교체한 복사본을 계산합니다. 현재 수치·변화량·막대 방향을 각 비교 기준에 맞추고 실제 장비와 서버 상태는 변경하지 않습니다. 장착 부착물을 제거한 결과는 내장 부착물 유지 규칙을 그대로 따릅니다. 실제 GUI 2/3, 관통력 포함 13행, 후보와 장착 효과, 팬텀 S1 사거리, 로비의 현재 장전탄/∞, 선택 카드 확대·정렬, 선택 의존성이 없는 서버에서 검증합니다.
+
+
+### 손전등 상태 아이콘 (0.5.18)
+
+기존 FlashlightStatePayload의 소유자 상태를 바 사이의 16×9 픽셀 아이콘에 표시합니다. 새 광원 계산·상태 패킷·외부 모드 연동은 추가하지 않습니다. 기존 20 GUI 픽셀 간격 안에 그리며 바의 위치·크기·다른 HUD는 유지합니다. 켜짐/꺼짐 액션바 메시지 호출과 사용하지 않는 두 번역 키를 제거했습니다. 실제 서버 토글→클라이언트 상태→HUD 픽셀, 액션바를 덮어쓰지 않는 동작을 GUI 배율 2·3에서 검증합니다.
