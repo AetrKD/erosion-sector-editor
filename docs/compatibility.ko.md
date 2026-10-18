@@ -4,6 +4,8 @@
 
 ## 확인 대상: 2026-10-18
 
+0.5.3의 자동 월드 생성은 설치된 Minecraft 1.21.1의 `TitleScreen.createNormalMenuOptions`, `WorldOpenFlows.createFreshLevel`, `WorldDimensions.bake`와 NeoForge 21.1.259의 `ScreenEvent.Init.Post`를 확인했습니다. 기본 모드 데이터팩의 차원을 함께 로드하는 원본 생성 흐름을 사용하며, 싱글플레이 버튼만 ES 생성으로 연결합니다. 최초 도착·부활은 서버의 `PlayerLoggedInEvent`, `PlayerRespawnEvent`, `Clone`에서 처리하고 임무 중 관전은 StageRuntime 처리 뒤에 보존합니다. 기본 서버 검사 148개와 표시되는 실제 클라이언트의 생성·사망·부활·저장·재접속·두 번째 새 월드 흐름을 확인했습니다. TaCZ·Create·CarryOn 등 외부 모드 파일과 기존 사용자 설정은 변경하지 않습니다. [로비 생성 안내](lobby-world.ko.md).
+
 0.5.2는 ES 문의 상태 변경 알림과 이벤트 대상 분류를 추가합니다. 설치된 Minecraft/NeoForge 원본의 BlockEntity 수명 주기와 `Inventory.setItem/setChanged` 호출을 확인했습니다. 문 로드·제거·방향·결합 상태 변경도 무효화하고, 다른 모드가 변경 알림 없이 아이템의 컴포넌트를 교체해도 수집을 놓치지 않도록 슬롯 읽기는 유지합니다. CustomData의 불변 값만 식별 캐시에 사용합니다. 외부 모드의 JAR·설정·API는 변경하지 않습니다. 독립된 숨긴 클라이언트에서 Iris·Create와 모사 팀원 3명을 포함한 부하를 확인했습니다. 검사 범위는 [최적화 기록](optimization.ko.md)을 참고하세요.
 
 0.5.1은 ES 손전등의 임시 객체 생성과 스테이지 위치·스캔 검사를 줄입니다. 기존 Minecraft 1.21.1의 AABB 포함 규칙과 좌표 계산 순서를 유지하고, 외부 모드의 광선 훅이 광학 형상을 무시할 때의 기존 재검사 경로도 유지합니다. TaCZ·CarryOn·Iris·Create 연동 API와 갱신 주기는 변경하지 않습니다. 이전 그림자 데이터와의 정확한 일치, 타일 경계·겹침, 비활성 탈출 스캔의 화물 인계와 같은 틱 활성화를 검증했습니다. 측정 범위와 클라이언트 검사는 [최적화 기록](optimization.ko.md)을 참고하세요.
