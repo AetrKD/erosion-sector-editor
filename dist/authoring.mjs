@@ -1,7 +1,7 @@
 import {BLOCKS,walkBlocks,duplicateBlock} from './logic.mjs';
 import {uid,tileOf,worldPoint,inversePoint,placementError} from './core.mjs';
 import {nextAreaCode} from './hierarchy.mjs';
-import {scanSteps} from './scan.mjs';
+import {scanSteps,scanPosition} from './scan.mjs';
 import {occupancy} from './occupancy.mjs';
 
 export const scalarKind=kind=>['number','text','choice'].includes(kind);
@@ -22,28 +22,28 @@ export function scanMove(project,g,index,world,scene=null){
   const old=scanSteps(g)[index];if(!old)throw new Error('스캔 단계가 없습니다.');
   const candidates=project.placements.flatMap(p=>{const t=scene?scene.tiles.get(p.tileId):tileOf(project,p);if(!t)return [];const local=inversePoint({x:world.x-p.x*16,y:world.y-p.y*8,z:world.z-p.z*16},t,p.rotation);return local.x>=0&&local.z>=0&&local.x<t.size.x&&local.z<t.size.z&&local.y>=0&&local.y<t.size.y?[{p,local,t}]:[];});
   const hit=candidates.find(c=>c.p.id===old.placementId)||candidates[0];if(!hit)throw new Error('스캔 중심은 배치된 타일 안에 있어야 합니다.');
-  return {placementId:hit.p.id,position:{x:Math.min(hit.t.size.x-1,(old.centerAnchor==='corner'?Math.round:Math.floor)(hit.local.x)),y:hit.local.y,z:Math.min(hit.t.size.z-1,(old.centerAnchor==='corner'?Math.round:Math.floor)(hit.local.z))}};
+  return {placementId:hit.p.id,position:{x:Math.min(hit.t.size.x-1,Math.round(hit.local.x)),y:Math.round(hit.local.y),z:Math.min(hit.t.size.z-1,Math.round(hit.local.z))}};
 }
 export function updateScanStep(g,index,patch){
   if(index===0){if(patch.position)g.position=patch.position;if(patch.placementId)g.placementId=patch.placementId;if(patch.radius!==undefined)g.settings.radius=patch.radius;}
   else {if(!g.settings.steps?.[index-1])throw new Error('스캔 단계가 없습니다.');Object.assign(g.settings.steps[index-1],patch);}
 }
-export function scanCenter(project,step,scene=null){const p=scene?scene.placements.get(step.placementId):project.placements.find(p=>p.id===step.placementId),t=p&&(scene?scene.tiles.get(p.tileId):tileOf(project,p));return t?worldPoint({...step.position,x:step.position.x+(step.centerAnchor==='corner'?0:.5),z:step.position.z+(step.centerAnchor==='corner'?0:.5)},t,p):null;}
+export function scanCenter(project,step,scene=null){const p=scene?scene.placements.get(step.placementId):project.placements.find(p=>p.id===step.placementId),t=p&&(scene?scene.tiles.get(p.tileId):tileOf(project,p));return t?worldPoint(scanPosition(step.position,t.size),t,p):null;}
 
 const candidateCache=new WeakMap();
 /** Conservative non-air preview only. Native collision/support shapes remain authoritative. */
-export function scanCandidates(tile,y,radius,anchor,centerAnchor="cell"){
+export function scanCandidates(tile,y,radius,anchor){
   const bits=occupancy(tile);if(!bits)return {known:false,cells:[]};
   if(!Number.isInteger(y)||y<1||y+1>=tile.size.y)return {known:true,cells:[]};
   let cache=candidateCache.get(tile);if(!cache){cache=new Map();candidateCache.set(tile,cache);}
-  const key=[y,radius,Math.floor(anchor.x),Math.floor(anchor.z),centerAnchor].join(':');if(cache.has(key))return cache.get(key);
+  const key=[y,radius,Math.floor(anchor.x),Math.floor(anchor.z)].join(':');if(cache.has(key))return cache.get(key);
   const w=tile.size.x,h=tile.size.z,solid=(x,yy,z)=>{const i=x+w*(z+h*yy);return !!(bits[i>>3]&(1<<(i&7)));};
   const walk=new Uint8Array(w*h),reachable=new Uint8Array(w*h),prefix=new Int32Array((w+1)*h),queue=[];
   for(let z=0;z<h;z++)for(let x=0;x<w;x++){const i=x+w*z;walk[i]=solid(x,y-1,z)&&!solid(x,y,z)&&!solid(x,y+1,z)?1:0;prefix[z*(w+1)+x+1]=prefix[z*(w+1)+x]+(walk[i]?0:1);}
   const ax=Math.floor(anchor.x),az=Math.floor(anchor.z),start=ax+w*az;
   if(ax>=0&&ax<w&&az>=0&&az<h&&walk[start]){queue.push(start);reachable[start]=1;}
   for(let n=0;n<queue.length;n++){const i=queue[n],x=i%w,z=Math.floor(i/w);for(const [xx,zz] of [[x-1,z],[x+1,z],[x,z-1],[x,z+1]]){const j=xx+w*zz;if(xx>=0&&xx<w&&zz>=0&&zz<h&&walk[j]&&!reachable[j]){reachable[j]=1;queue.push(j);}}}
-  const cells=[],offset=centerAnchor==='corner'?0:.5;
+  const cells=[],offset=0;
   for(let z=0;z<h;z++)for(let x=0;x<w;x++)if(reachable[x+w*z]){
     const cx=x+offset,cz=z+offset;
     let ok=cx-radius>=0&&cz-radius>=0&&cx+radius<=w&&cz+radius<=h;

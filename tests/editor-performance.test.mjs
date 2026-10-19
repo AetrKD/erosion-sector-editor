@@ -10,8 +10,8 @@ test('cached palette decisions equal uncached decisions across rotations, masks,
   const {project:p}=await scanFixture(),edited=structuredClone(p);edited.placements[1].rotation=90;edited.placements.splice(2,1);edited.gimmicks=edited.gimmicks.filter(g=>g.placementId!=='p2');
   const evaluate=createPaletteEvaluator(),brushes=[{kind:'tile',id:'t0',rotation:0},{kind:'tile',id:'t1',rotation:90},{kind:'gimmick',id:'scan'},{kind:'gimmick',id:'supply'},{kind:'gimmick',id:'cargo'}];
   for(const project of [p,edited,p])for(let i=0;i<180;i++){
-    const brush=brushes[i%brushes.length],point={x:(i*7%29-2)/16,y:i%7===0?1:0,z:(i*13%11-2)/16},before=packStage(project);
-    assert.deepEqual(evaluate(project,brush,point,'r0'),palettePlacement(project,brush,point,'r0'));assert.deepEqual(packStage(project),before);
+    const brush=brushes[i%brushes.length],point={x:(i*7%29-2)/16,y:i%7===0?1:0,z:(i*13%11-2)/16},before=structuredClone(project);
+    assert.deepEqual(evaluate(project,brush,point,'r0'),palettePlacement(project,brush,point,'r0'));assert.deepEqual(project,before);
   }
 });
 

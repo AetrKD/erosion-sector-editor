@@ -22,7 +22,7 @@ test('hover previews an invalid overlapping tile and releasing cannot insert it'
 test('library gimmick drag targets a rotated tile and rejects the space outside any tile',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await load(page,p=>p.placements[1].rotation=90);await page.locator('[data-tab=gimmicks]').click();const before=await snapshot(page);
   await hold(page,page.locator('[data-gimmick-type=scan]'),await point(page,{x:9,z:1}));await expect(page.locator('#map')).toHaveAttribute('data-drop-state','valid');await page.screenshot({path:'artifacts/palette-gimmick-drop.png'});await page.mouse.up();
-  const after=await snapshot(page);expect(after.gimmicks).toHaveLength(before.gimmicks.length+1);expect(after.gimmicks.at(-1)).toMatchObject({type:'scan',placementId:'p1',position:{x:1.5,y:1,z:6.5}});
+  const after=await snapshot(page);expect(after.gimmicks).toHaveLength(before.gimmicks.length+1);expect(after.gimmicks.at(-1)).toMatchObject({type:'scan',placementId:'p1',position:{x:1,y:1,z:7}});
   await hold(page,page.locator('[data-gimmick-type=keycard]'),await point(page,{x:0,z:16}));await expect(page.locator('#paletteDropStatus')).toContainText('타일 내부');await page.mouse.up();expect(await snapshot(page)).toEqual(after);expect(errors).toEqual([]);
 });
 

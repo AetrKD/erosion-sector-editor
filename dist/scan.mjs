@@ -1,5 +1,8 @@
 export const isScan=type=>type==='scan'||type==='extraction';
 export const scanDefaults=()=>({radius:2.5,duration:5,requiredPlayers:'all',positionMode:'fixed',steps:[]});
+// Scan coordinates are integer points, with no block-center offset.
+export function scanPosition(position,size){return Object.fromEntries(['x','y','z'].map(k=>{const v=position[k],n=Math.round(v);return [k,Number.isFinite(v)&&size&&v>=0&&v<size[k]?Math.min(size[k]-1,n):n];}));}
+export function normalizeScanCoordinates(project){for(const g of project.gimmicks.filter(g=>isScan(g.type))){const normalize=(position,placementId)=>{const p=project.placements.find(p=>p.id===placementId),t=p&&project.tiles.find(t=>t.id===p.tileId);return position&&scanPosition(position,t?.size);};g.position=normalize(g.position,g.placementId);delete g.settings.centerAnchor;for(const step of g.settings.steps||[]){if(step?.position)step.position=normalize(step.position,step.placementId||g.placementId);if(step&&typeof step==='object')delete step.centerAnchor;}}}
 export function scanSteps(g){return [{...g.settings,placementId:g.placementId,position:g.position},...(g.settings.steps||[]).map(s=>({...g.settings,...s,position:s.position||g.position,placementId:s.placementId||g.placementId}))];}
 export function assertScans(project){
   let total=0,count=0;
@@ -12,7 +15,6 @@ export function assertScans(project){
     for(const step of scanSteps(g)){
       for(const [key,min,max,defaultValue] of [['radius',.5,16,2.5],['duration',.1,3600,5]]){const value=step[key]??defaultValue;if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)fail(`${key} 값은 ${min}~${max} 범위여야 합니다.`);}
       const people=step.requiredPlayers??(s.requireAll===false?1:'all');if(people!=='all'&&(!Number.isInteger(people)||people<1||people>16))fail('요구 인원은 팀 전체 또는 1~16명입니다.');
-      if(!['cell','corner'].includes(step.centerAnchor??'cell'))fail('스캔 중심 기준을 확인하세요.');
       if(!['fixed','random'].includes(step.positionMode||'fixed'))fail('스캔 위치 방식을 확인하세요.');
       if(typeof step.placementId!=='string'||!step.position||['x','y','z'].some(k=>typeof step.position[k]!=='number'||!Number.isFinite(step.position[k])))fail('스캔의 소속 타일과 좌표를 확인하세요.');
     }
@@ -32,19 +34,18 @@ export function scanFields(g,p,{field:f,select:s}){
   const people=[['all','생존한 팀 전체'],...Array.from({length:16},(_,i)=>[String(i+1),`${i+1}인 이상`])],modes=[['fixed','직접 지정'],['random','연결된 바닥에서 랜덤']];
   const a=g.settings;
   const fields=(step,path,label)=>s(label+' 위치 방식',path+'positionMode',step.positionMode||'fixed',modes)
-    +s(label+' 중심 기준',path+'centerAnchor',step.centerAnchor??a.centerAnchor??'cell',[['cell','블록 중심'],['corner','블록 모서리 · 격자 교차점']])
     +f(label+' 반경 · 블록',path+'radius',step.radius??a.radius??2.5,'number','min="0.5" max="16" step="0.5"')
     +f(label+' 시간 · 초',path+'duration',step.duration??a.duration??5,'number','min="0.1" max="3600" step="0.1"')
     +s(label+' 요구 인원',path+'requiredPlayers',String(step.requiredPlayers??a.requiredPlayers??(a.requireAll===false?1:'all')),people);
   let html='<div class="section-title">원형 스캔 · 1단계</div>'+fields(a,'settings.','스캔');
   if(g.type==='scan')html+=s('시작 시 자동 활성화','settings.enabled',String(a.enabled??true),[['true','예'],['false','이벤트로 시작']]);
   if(g.type==='extraction')html+=s('필수 목표 완료 시 자동 활성화','settings.unlockOnObjectives',String(a.unlockOnObjectives??true),[['true','예'],['false','이벤트로 활성화']]);
-  html+='<div class="note subtle">중심 기준은 X/Z에 적용됩니다. 블록 중심은 입력 좌표에 0.5를 더하고, 모서리는 입력 좌표 그대로 사용합니다. 기존 파일은 블록 중심을 유지합니다. 모서리 설정은 모드 0.5.40 이상이 필요합니다. 인원이 부족하면 진행도를 유지한 채 멈춥니다. 바닥 높이 ±1블록까지 집계합니다. 랜덤은 위의 좌표를 기준으로 연결된 평평한 바닥에서 원 전체가 들어가는 곳을 선택합니다. 벽·낭떠러지·타일 밖을 피하며 유효한 위치가 없으면 실행 전에 오류를 안내합니다.</div>';
+  html+='<div class="note subtle">스캔 중심은 입력한 정수 좌표 그대로입니다. X=8, Z=8이면 중심은 (8, 8)입니다. 좌표에 0.5를 더하지 않습니다. 모드 0.5.41 이상을 사용하세요. 인원이 부족하면 진행도를 유지한 채 멈춥니다. 바닥 높이 ±1블록까지 집계합니다. 랜덤은 위의 좌표를 기준으로 연결된 평평한 바닥에서 원 전체가 들어가는 곳을 선택합니다. 벽·낭떠러지·타일 밖을 피하며 유효한 위치가 없으면 실행 전에 오류를 안내합니다.</div>';
   for(const [i,raw] of (a.steps||[]).entries()){
     const step={...a,...raw},path=`settings.steps.${i}.`,tile=raw.placementId||g.placementId,pos=raw.position||g.position;
     html+=`<div class="divider"></div><div class="section-title">스캔 ${i+2}단계 <button type="button" class="subtle-button" data-scan-remove="${i}">삭제</button></div>`
       +s(`${i+2}단계 타일`,path+'placementId',tile,p.placements.map(q=>[q.id,`${p.rooms.find(r=>r.id===q.roomId)?.code||'?'} / ${q.areaCode||'?'} · ${p.tiles.find(t=>t.id===q.tileId)?.name||'타일'}`]))
-      +['x','y','z'].map(k=>f(`${i+2}단계 ${k.toUpperCase()}`,path+'position.'+k,pos[k],'number','min="0" max="255.5" step="0.5"')).join('')+fields(step,path,`${i+2}단계`);
+      +['x','y','z'].map(k=>f(`${i+2}단계 ${k.toUpperCase()}`,path+'position.'+k,pos[k],'number','min="0" max="255" step="1"')).join('')+fields(step,path,`${i+2}단계`);
   }
   if((a.steps?.length||0)<63)html+='<button type="button" class="button full" data-scan-add>＋ 다음 스캔 단계 추가</button>';
   return html;

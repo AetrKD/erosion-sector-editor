@@ -1,4 +1,4 @@
-import {assertScans,scanIssues} from './scan.mjs';
+import {assertScans,scanIssues,normalizeScanCoordinates} from './scan.mjs';
 export const OBJECTIVE_TYPES={scan:'스캔 완료',command:'터미널 명령어 입력',visit:'타일 방문',collect:'ID 키카드 획득',pickup:'화물 들어 올리기',deliver:'화물을 탈출 지점으로 운반',manual:'이벤트로 완료'};
 export function normalizeMission(p){
   p.missionMode??='extract';p.objectives??=[];
@@ -12,7 +12,7 @@ export function normalizeMission(p){
     for(const key of ['commands','spawnTiles'])if(s[key]!==undefined&&(!Array.isArray(s[key])||s[key].length>(key==='commands'?64:1000)||s[key].some(v=>typeof v!=='string'||!v.trim()||v.length>(key==='commands'?120:160))))throw new Error(g.name+': 명령어 또는 생성 타일 목록을 확인하세요.');
     for(const key of ['entity','containerId','keyId','objectKey','wakeRoomId','mode','spawnRule','finishRule'])if(s[key]!==undefined&&(typeof s[key]!=='string'||s[key].length>160))throw new Error(g.name+': 장치 설정 문자열을 확인하세요.');
     for(const key of ['duration','radius','count','distance','waves','waveInterval'])if(s[key]!==undefined&&(!Number.isFinite(s[key])||Math.abs(s[key])>3600))throw new Error(g.name+': 수량·시간·거리 설정을 확인하세요.');
-  }assertScans(p);return p;
+  }assertScans(p);normalizeScanCoordinates(p);return p;
 }
 export function objectiveTargets(p,type){return type==='visit'?p.placements.map(q=>[q.id,`${p.rooms.find(r=>r.id===q.roomId)?.code||'?'} / ${q.areaCode||'?'} · ${p.tiles.find(t=>t.id===q.tileId)?.name||'타일'}`]):type==='manual'?[]:p.gimmicks.filter(g=>g.type===({command:'terminal',collect:'keycard',pickup:'cargo',deliver:'cargo',scan:'scan'}[type])).map(g=>[g.id,g.name]);}
 export function missionIssues(p){

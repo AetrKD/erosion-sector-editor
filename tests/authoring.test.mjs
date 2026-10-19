@@ -46,7 +46,7 @@ test('runaway event loops are bounded and reset is a clean new simulation',()=>{
 
 test('scan center dragging is correct for each yaw and preserves floor height',async()=>{
   const {project:p}=await scanFixture(),g=p.gimmicks.find(g=>g.id==='security-scan'),placement=p.placements[0],tile=p.tiles[0];
-  for(const yaw of [0,90,180,270]){placement.rotation=yaw;const w=worldPoint({x:4.5,y:1,z:4.5},tile,placement),patch=scanMove(p,g,0,w);assert.equal(patch.placementId,'p0');assert.deepEqual(patch.position,{x:4,y:1,z:4});updateScanStep(g,0,patch);assert.deepEqual(scanCenter(p,scanSteps(g)[0]),w);}
+  for(const yaw of [0,90,180,270]){placement.rotation=yaw;const w=worldPoint({x:4,y:1,z:4},tile,placement),patch=scanMove(p,g,0,w);assert.equal(patch.placementId,'p0');assert.deepEqual(patch.position,{x:4,y:1,z:4});updateScanStep(g,0,patch);assert.deepEqual(scanCenter(p,scanSteps(g)[0]),w);}
   assert.throws(()=>scanMove(p,g,0,{x:-500,y:1,z:-500}),/타일 안/);
   updateScanStep(g,1,{radius:3});assert.equal(g.settings.radius,1);assert.equal(g.settings.steps[0].radius,3);
 });
@@ -54,7 +54,7 @@ test('scan center dragging is correct for each yaw and preserves floor height',a
 test('random scan preview fits the entire disk and excludes holes, wall-separated rooms and unsupported data',()=>{
   const size={x:12,y:8,z:12},positions=[];for(let x=0;x<12;x++)for(let z=0;z<12;z++)if(x!==2||z!==2)positions.push([x,0,z]);for(let z=0;z<12;z++)positions.push([6,1,z]);
   const t={size,asset:{occupancy:encodeOccupancy(size,positions)}};const result=scanCandidates(t,1,1.5,{x:3,y:1,z:4});assert.ok(result.known);assert.ok(result.cells.some(c=>c.valid));assert.ok(result.cells.every(c=>c.x<6));assert.ok(!result.cells.find(c=>c.x===3&&c.z===3)?.valid);assert.ok(result.cells.filter(c=>c.valid).every(c=>c.x>=1&&c.x<=4&&c.z>=1&&c.z<=10));
-  const corner=scanCandidates(t,1,1.5,{x:3,y:1,z:4},'corner');assert.notEqual(corner,result);assert.ok(corner.cells.some(c=>c.valid));for(const c of corner.cells.filter(c=>c.valid)){assert.ok(c.x>=1.5&&c.x+1.5<=6&&c.z>=1.5&&c.z+1.5<=12);const dx=Math.max(2-c.x,Math.max(0,c.x-3)),dz=Math.max(2-c.z,Math.max(0,c.z-3));assert.ok(dx*dx+dz*dz>=2.25);}
+  const corner=scanCandidates(t,1,1.5,{x:3,y:1,z:4},'corner');assert.equal(corner,result);assert.ok(corner.cells.some(c=>c.valid));for(const c of corner.cells.filter(c=>c.valid)){assert.ok(c.x>=1.5&&c.x+1.5<=6&&c.z>=1.5&&c.z+1.5<=12);const dx=Math.max(2-c.x,Math.max(0,c.x-3)),dz=Math.max(2-c.z,Math.max(0,c.z-3));assert.ok(dx*dx+dz*dz>=2.25);}
   assert.deepEqual(scanCandidates({size},1,1,{}),{known:false,cells:[]});assert.equal(scanCandidates(t,1,16,{x:3,y:1,z:4}).cells.filter(c=>c.valid).length,0);
 });
 
