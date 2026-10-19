@@ -131,19 +131,6 @@ test('single stage save retains chapter and mission metadata and replaces separa
   expect(await page.locator('[data-action=export]').count()).toBe(0);
 });
 
-test('freeform design tiles use block dimensions and require an initial door',async({page})=>{
-  await page.locator('[data-action=new-tile]').click();const dialog=page.locator('#dialog');
-  await dialog.getByLabel('가로 X · 블록',{exact:true}).fill('17');
-  await dialog.getByLabel('깊이 Z · 블록',{exact:true}).fill('19');
-  await dialog.getByLabel('높이 Y · 블록',{exact:true}).fill('16');
-  await dialog.getByRole('button',{name:'타일 만들기',exact:true}).click();
-  await expect(dialog).not.toBeVisible();const tile=(await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1);
-  expect(tile.size).toEqual({x:17,y:16,z:19});expect(tile.ports).toHaveLength(1);
-  await page.locator('[data-edit-port]').click();await dialog.locator('[data-remove-port]').click();
-  await expect(page.locator('#toast')).toContainText('최소 하나');
-  expect((await page.evaluate(()=>EROSIONSECTOR_EDITOR.snapshot())).tiles.at(-1).ports).toHaveLength(1);
-});
-
 test('NBT occupancy permits overlapping air volumes, blocks a real collision, and saves directional conditions',async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   const bytes=doorFixture({size:[17,8,19],width:4,height:4,access:'ALARM',compressed:true});

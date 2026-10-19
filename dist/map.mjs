@@ -128,7 +128,7 @@ export function createMap(canvas,get,callbacks){
       const chosen=state.selection?.id===n.g.id&&(state.selection.step??0)===n.index;
       if(chosen&&n.step.positionMode==='random'&&!drag?.scan){
         const p=sceneFor(state.project).placements.get(n.step.placementId),tile=p&&sceneFor(state.project).tiles.get(p.tileId);
-        if(tile){const preview=scanCandidates(tile,n.step.position.y,n.step.radius??2.5,n.step.position);
+        if(tile){const preview=scanCandidates(tile,n.step.position.y,n.step.radius??2.5,n.step.position,n.step.centerAnchor);
           let masks=scanMasks.get(preview);if(!masks){masks={valid:new Path2D(),invalid:new Path2D()};for(const c of preview.cells)masks[c.valid?'valid':'invalid'].rect(c.x,c.z,1,1);scanMasks.set(preview,masks);}
           const origin=worldPoint({x:0,y:0,z:0},tile,p),axisX=worldPoint({x:1,y:0,z:0},tile,p),axisZ=worldPoint({x:0,y:0,z:1},tile,p),at=screen(origin.x/16,origin.z/16),unit=scale/16;
           ctx.save();ctx.transform((axisX.x-origin.x)*unit,(axisX.z-origin.z)*unit,(axisZ.x-origin.x)*unit,(axisZ.z-origin.z)*unit,at.x,at.z);ctx.fillStyle='#69df9738';ctx.fill(masks.valid);ctx.fillStyle='#e3816c20';ctx.fill(masks.invalid);ctx.restore();

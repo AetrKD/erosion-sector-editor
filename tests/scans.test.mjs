@@ -24,3 +24,11 @@ test('invalid continuation tile, floor and oversized random disk are shown as au
   g.settings.steps[0].placementId='p1';g.settings.steps[0].radius=5;assert.ok(validate(p).some(i=>i.message.includes('타일보다 큰 원')));
   g.settings.steps[0].radius=1;g.settings.steps[0].position.y=1.5;assert.ok(validate(p).some(i=>i.message.includes('높이는 정수')));
 });
+
+import {scanCenter,scanMove,scanCandidates} from '../dist/authoring.mjs';
+test('corner grid survives archives and rotation, legacy centers and per-step overrides remain distinct',async()=>{
+  const {project:p}=await scanFixture(),g=p.gimmicks.at(-1);g.settings.centerAnchor='corner';g.settings.steps[0].centerAnchor='cell';
+  const restored=unpackStage(packStage(p)),saved=restored.gimmicks.at(-1);assert.equal(scanSteps(saved)[0].centerAnchor,'corner');assert.equal(scanSteps(saved)[1].centerAnchor,'cell');
+  for(const rotation of [0,90,180,270]){p.placements.find(q=>q.id===g.placementId).rotation=rotation;const step=scanSteps(g)[0],corner=scanCenter(p,step),cell=scanCenter(p,{...step,centerAnchor:'cell'});assert.equal(corner.x,Math.round(corner.x));assert.equal(corner.z,Math.round(corner.z));assert.equal(Math.hypot(cell.x-corner.x,cell.z-corner.z),Math.SQRT1_2);assert.deepEqual(scanCenter(p,{...step,centerAnchor:undefined}),cell);const moved=scanMove(p,g,0,corner);assert.deepEqual(moved.position,g.position);}
+  g.settings.centerAnchor='typo';assert.throws(()=>readProject(p),/중심 기준/);
+});
