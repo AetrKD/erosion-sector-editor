@@ -58,19 +58,6 @@ for key,im in images:
  if y+h+2>4096:save_page();x=y=row=0
  page.paste(im,(x+1,y+1));data['textures'][key]={'page':number,'x':x+1,'y':y+1,'w':w,'h':h};x+=w+2;row=max(row,h+2)
 save_page()
-# Browser previews are static closed poses; append clipped owned hatches to each shell cell.
-import copy
-for name,w,h in [('small',1,1),('medium',1,2),('large',2,2)]:
- panel=data['models'].get('erosionsector:block/supply_'+name+'_panel',{}).get('elements',[])
- for x in range(w):
-  for y in range(h):
-   target=data['models'].get(f'erosionsector:block/supply_{name}_{x}_{y}')
-   if target is None:continue
-   for part in panel:
-    a=[max(part['from'][i],[x*16,y*16,0][i]) for i in range(3)];b=[min(part['to'][i],[x*16+16,y*16+16,16][i]) for i in range(3)]
-    if any(a[i]>=b[i] for i in range(3)):continue
-    e=copy.deepcopy(part);e['from']=[a[i]-[x*16,y*16,0][i] for i in range(3)];e['to']=[b[i]-[x*16,y*16,0][i] for i in range(3)];target['elements'].append(e)
-
 data['ctRules']=json.loads((metadata/'ct-rules.json').read_text(encoding='utf-8'))
 data['copycatDefaults']=json.loads((metadata/'copycat-states.json').read_text(encoding='utf-8'))
 raw=json.dumps(data,separators=(',',':')).encode();name='models-'+hashlib.sha256(raw).hexdigest()[:16]+'.json';(out/name).write_bytes(raw)

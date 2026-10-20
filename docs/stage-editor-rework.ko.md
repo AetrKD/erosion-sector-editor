@@ -58,3 +58,8 @@ stage.json 확장: variables[{id,name,initial}], enemyGroups[{id,name,scope,targ
 ## 0.6.2 후속 변경
 
 상단 메뉴 순서·오른쪽 한정 미리보기·고정 눈금·도움말 UI로 정리했고 모의 실행 화면은 제거했다. 상호작용은2.5블록이며 컨테이너는1초 개봉 후 수납 접근이다. 상세는 [편집기·상호작용·컨테이너 변경](usability-containers.ko.md)을 따른다.
+
+
+## 0.6.3 컨테이너 변경
+
+컨테이너의1초 개봉 대기는 제거했다. 크기별 전용 모델/아틀라스로 재설계했고 E로 즉시 수납 화면을 연다. [컨테이너 재설계](container-redesign.ko.md)를 따른다.

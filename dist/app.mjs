@@ -47,7 +47,7 @@ const management=createManagement({getProject:()=>project,commit,modal,esc,field
 const tilePreview=createTilePreview({panel:$('tilePreviewPanel'),notify:toast});
 
 tilePreview.openButton.onclick=()=>$('previewNbtInput').click();
-function showPreview(){ui.section='tiles';ui.workspace='map';ui.preview=!ui.preview;ui.tab='tiles';ui.mode='select';ui.brush=null;renderAll();}
+function showPreview(force){ui.section='tiles';ui.workspace='map';ui.preview=force===true?true:!ui.preview;ui.tab='tiles';ui.mode='select';ui.brush=null;renderAll();}
 async function previewTile(){const selected=ui.selection?.kind==='placement'?tileOf(project,project.placements.find(p=>p.id===ui.selection.id)):project.tiles.find(t=>t.id===ui.selection?.id);const tile=selected;ui.preview=true;ui.workspace='map';renderAll();if(!tile?.asset?.bytes){toast('원본이 연결되지 않았습니다. 타일 폴더를 연결하거나 설계도 하나를 여세요.');return;}tilePreview.open(Uint8Array.from(atob(tile.asset.bytes),c=>c.charCodeAt(0)),tile.name,ui.selection?.kind==='placement'?project.gimmicks.filter(g=>g.placementId===ui.selection.id).map(g=>({type:g.type,position:g.position,radius:g.settings.radius||2.5})):[],ui.selection?.kind==='placement'?project.placements.find(p=>p.id===ui.selection.id)?.rotation||0:0);}
 function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').className='toast show'+(error?' error':'');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4200);
   if(error&&$('dialog').open){let note=$('dialogBody').querySelector('[data-dialog-error]');if(!note){note=document.createElement('div');note.dataset.dialogError='';note.className='note warning';note.setAttribute('role','alert');$('dialogBody').append(note);}note.textContent=message;}
@@ -389,7 +389,7 @@ window.addEventListener('keydown',event=>{
 });
 renderAll();$('welcome').showModal();
 $('welcome').addEventListener('cancel',e=>e.preventDefault());
-$('previewNbtInput').addEventListener('change',async e=>{const f=e.target.files[0];if(f){showPreview();tilePreview.open(new Uint8Array(await f.arrayBuffer()),f.name);}e.target.value='';});
+$('previewNbtInput').addEventListener('change',async e=>{const f=e.target.files[0];if(f){showPreview(true);tilePreview.open(new Uint8Array(await f.arrayBuffer()),f.name);}e.target.value='';});
 try{const db=await openDatabase();const saved=await new Promise((resolve,reject)=>{const request=db.transaction('projects').objectStore('projects').get('current');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});if(saved){recoveredProject=saved;$('resumeProject').hidden=false;}$('saveStatus').textContent='자동 저장 준비';$('saveStatus').className='save-status saved';}catch{toast('자동 저장을 사용할 수 없습니다. 스테이지 파일로 저장해 주세요.',true);$('saveStatus').textContent='파일 저장 사용';}
 // Read-only diagnostics expose counts for local browser QA without changing editor state.
 globalThis.EROSIONSECTOR_EDITOR=Object.freeze({summary:()=>({placements:project.placements.length,gimmicks:project.gimmicks.length,rooms:project.rooms.length,programs:project.programs.length,workspace:ui.workspace,floor:ui.floor,view:ui.view,camera:map.cameraState(),preview:tilePreview.state(),issues:validate(project)}),snapshot:()=>clone(project),projectPoint:point=>map.projectPoint(point)});
