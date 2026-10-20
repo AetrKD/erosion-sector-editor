@@ -20,7 +20,7 @@ test('directly drag a continuation scan, resize its handle, undo and round-trip 
 
 test('random candidate floor preview appears after linking the real NBT folder',async({page})=>{
   const {sources}=await load(page),root=path.resolve('artifacts/authoring-tiles');for(const [ref,bytes] of sources){await mkdir(path.join(root,path.dirname(ref)),{recursive:true});await writeFile(path.join(root,ref),bytes);}
-  await page.locator('#tileFolderInput').setInputFiles(root);await page.locator('[data-section=resources]').click();await page.locator('#managementPanel [data-select-id="security-scan"]').click();await page.locator('[data-scan-focus="1"]').click();await page.locator('.scan-map-tools .help-button').last().click();await expect(page.locator('.help-dialog')).toContainText(/배치 후보 [1-9]/);await page.keyboard.press('Escape');await page.screenshot({path:'artifacts/authoring-random-floor.png'});
+  await page.locator('#tileFolderInput').setInputFiles(root);await page.locator('[data-section=resources]').click();await page.locator('#managementPanel [data-select-id="security-scan"]').click();await page.locator('[data-scan-focus="1"]').click();await expect(page.locator('.scan-map-tools')).toContainText(/배치 후보 [1-9]/);await page.screenshot({path:'artifacts/authoring-random-floor.png'});
 });
 
 test('a door shows its exact event references and navigates back from a block target',async({page})=>{

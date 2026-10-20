@@ -154,7 +154,7 @@ function renderWorkflow(issues=validate(project)){
   document.querySelectorAll('button[data-workspace],button[data-workspace-tab]').forEach(button=>{if((button.dataset.workspace||button.dataset.workspaceTab)===ui.workspace)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
   document.querySelector('.editor').dataset.workspace=ui.workspace;
   document.querySelector('.workspace').dataset.workspace=ui.workspace;document.querySelector('.workspace').dataset.section=ui.section;
-  document.querySelector('#libraryPanel .panel-heading h2').innerHTML=(ui.workspace==='events'?'이벤트 목록':'라이브러리')+' <button class="help-button" data-help="'+ui.section+'" aria-label="도움말">ⓘ</button>';
+  document.querySelector('#libraryPanel .panel-heading h2').innerHTML=(ui.workspace==='events'?'이벤트 목록':'라이브러리');
   document.querySelector('.editor-toolbar').hidden=ui.workspace!=='map';$('cursorStatus').hidden=ui.workspace!=='map';
   document.querySelector('[data-action=toggle-inspector]').hidden=ui.workspace==='events';
   const context=$('workspaceContext');context.hidden=ui.workspace!=='preview';context.innerHTML='개별 NBT 설계도의 모양을 확인합니다. 배치 지도에서는 크기와 문 위치를 사용합니다.<button data-workspace="map">배치 지도로 돌아가기</button>';
@@ -254,7 +254,7 @@ function coordinateDialog(){const tile=project.tiles.find(t=>t.id===ui.brush?.id
     const p={id:uid('placement'),tileId:tile.id,x:Number(data.get('x'))/16,y:Number(data.get('y')),z:Number(data.get('z'))/16,rotation:Number(data.get('rotation')),roomId:data.get('roomId'),name:''},error=placementError(project,p);
     if(error){toast(error,true);return false;}ui.selection={kind:'placement',id:p.id};ui.floor=p.y;return commit(pj=>pj.placements.push(p));},'배치');}
 function validationDialog(){const issues=validate(project),errors=issues.filter(i=>i.severity==='error').length;modal('스테이지 검사',`<p>${errors?`수정할 항목이 ${errors}개 있습니다.`:'공간 배치와 기믹 참조를 검사했습니다.'}</p>${issues.map((i,index)=>`<button type="button" class="issue ${i.severity}" data-issue="${index}"><span>${{error:'⊗',warning:'△',info:'ⓘ'}[i.severity]}</span><span>${esc(i.message)}</span></button>`).join('')}`,null);}
-function helpDialog(){document.querySelector('[data-help="tiles"]').click();}
+function helpDialog(){document.dispatchEvent(new Event('show-editor-help'));}
 const actions={
   'new-device':()=>{if(!project.placements.length)return toast('타일을 먼저 배치하세요.',true);modal('고정 요소 배치',selectField('종류','type','scan',[['scan','스캔'],['alarm','경보'],['terminal','터미널'],['supply','고정 보급함'],['object','상호작용 장치']])+selectField('배치할 타일','placementId',ui.selection?.kind==='placement'?ui.selection.id:project.placements[0].id,project.placements.map(p=>[p.id,p.areaCode+' · '+tileOf(project,p).name]))+['x','y','z'].map(k=>field('내부 '+k.toUpperCase(),'pos'+k,k==='y'?1:2,'number','min="0" step="1" required')).join(''),data=>{const placement=project.placements.find(p=>p.id===data.get('placementId'));const ok=placeGimmick(placement,Object.fromEntries(['x','y','z'].map(k=>[k,Number(data.get('pos'+k))])),data.get('type'));if(ok){ui.section='tiles';ui.workspace='map';renderAll();}return ok;});},
   'workflow':workflowDialog,
