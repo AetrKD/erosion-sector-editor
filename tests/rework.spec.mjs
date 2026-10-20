@@ -49,3 +49,14 @@ test('supply sizes render distinct owned static cases in the NBT preview',async(
  const palette=[],blocks=[];for(const [name,x,width,height] of [['small',1,1,1],['medium',3,1,2],['large',5,2,2]])for(let column=0;column<width;column++)for(let layer=0;layer<height;layer++){blocks.push({pos:[x+column,layer,1],state:palette.length});palette.push({Name:'erosionsector:supply_'+name,Properties:{facing:'north',column:String(column),layer:String(layer)}});}
  await page.locator('[data-action=preview]').click();await page.locator('#previewNbtInput').setInputFiles({name:'supply-cases.nbt',mimeType:'application/octet-stream',buffer:structureBytes([8,8,4],palette,blocks,true)});await page.waitForFunction(()=>EROSIONSECTOR_EDITOR.summary().preview.vertices>0);await expect(page.locator('#previewStats')).not.toContainText('미지원');await page.locator('#tilePreviewCanvas').screenshot({path:'artifacts/case-redesign-preview.png'});
 });
+
+test('equipment frames use new owned art and retired ES lights stay absent with an old pack',async({page})=>{
+ const result=await page.evaluate(async()=>{
+  const {loadBlockModels,BlockModels,texturedMesh}=await import('/block-models.mjs');const current=await loadBlockModels();
+  const skins=['melee_selector','equipment_selector','tool_selector'].map(id=>current.model('erosionsector:block/'+id+'_rack_2_1').textures.skin);
+  const retired=current.data.retiredStates;const old={...current.data,states:{...current.data.states,'erosionsector:facility_light':{variants:{'':{model:'erosionsector:block/cargo_crate'}}}}};
+  const merged=new BlockModels(old);const mesh=texturedMesh({size:[1,1,1],palette:[{Name:'erosionsector:facility_light'}],blocks:[{pos:[0,0,0],state:0}]},merged);
+  return {skins,retired,hasFixture:!!merged.data.states['erosionsector:facility_light'],faces:mesh.faces,blocks:mesh.blocks,missing:mesh.missing};
+ });
+ expect(result.skins).toEqual(['melee','guns','tool'].map(group=>'erosionsector:block/racks/'+group));expect(result.retired).toHaveLength(9);expect(result.hasFixture).toBe(false);expect(result.faces).toBe(0);expect(result.blocks).toBe(0);expect(result.missing).toEqual([]);
+});
