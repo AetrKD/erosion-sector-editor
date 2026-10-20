@@ -3,7 +3,7 @@ import {referenceTarget} from './authoring.mjs';
 import {SLOT_LABELS,EVENT_TEMPLATES,createEventTemplate,copyEvent,eventCount,slotPath,paletteTypes} from './event-workshop.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRender,showPreview,onLocate,onSimulate}){
+export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRender,showPreview,onLocate}){
   const state={id:null,category:'action',parentId:'',slot:'actions',query:'',filter:'',paletteOpen:true,collapsed:new Set()};let drag=null,updatingFields=false;
   const current=()=>getProject().programs.find(p=>p.id===state.id);
   const location=()=>{try{return current()&&slotOf(current(),state.parentId,state.slot);}catch{return null;}};
@@ -72,7 +72,7 @@ export function createLogicEditor({panel,getProject,commit,notify,onSelect,onRen
     if(action==='slot'){selectSlot(button.dataset.parent,button.dataset.slot);render();return;}
     if(action==='add'){if(button.getAttribute('aria-disabled')==='true'){notify('발생·조건·실행에 맞는 추가 위치를 먼저 선택하세요.',true);return;}state.paletteOpen=true;addAt(button.dataset.blockType);return;}
     if(action==='locate')return onLocate?.(button.dataset.targetKind,button.dataset.targetId);
-    if(action==='simulate')return onSimulate?.();if(action==='preview')return showPreview(current().name,describeProgram(current(),getProject()));
+    if(action==='preview')return showPreview(current().name,describeProgram(current(),getProject()));
     if(action==='palette'){state.paletteOpen=!state.paletteOpen;render();return;}
     if(action==='fold-all'||action==='unfold-all'){state.collapsed.clear();if(action==='fold-all'){walkBlocks(current(),b=>state.collapsed.add(b.id));state.parentId='';state.slot='actions';}render();return;}
     if(action==='copy-program'){const copy=copyEvent(current(),getProject());if(commit(p=>p.programs.push(copy))){state.filter='';choose(copy.id);notify('이벤트를 복제했습니다. 대상 연결은 유지됩니다.');}return;}

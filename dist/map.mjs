@@ -66,12 +66,17 @@ export function createMap(canvas,get,callbacks){
     ctx.lineWidth=1;
     for(let x=Math.floor(from.x);x<=Math.ceil(to.x);x++){
       const sx=Math.round(pan.x+x*scale)+.5;ctx.strokeStyle=x===0?'#394c58':'#23303b';ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,height);ctx.stroke();
-      if(x%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(x*16),sx+5,Math.min(height-55,Math.max(56,pan.y+5*scale)));}
     }
     for(let z=Math.floor(from.z);z<=Math.ceil(to.z);z++){
       const sy=Math.round(pan.y+z*scale)+.5;ctx.strokeStyle=z===0?'#394c58':'#23303b';ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(width,sy);ctx.stroke();
-      if(z%2===0||scale>45){ctx.fillStyle='#566d7b';ctx.font='9px "Segoe UI",sans-serif';ctx.fillText(String(z*16),Math.min(width-42,Math.max(15,pan.x-38)),sy+13);}
     }
+  }
+  function drawRulers(){
+    ctx.save();ctx.fillStyle='#15212b';ctx.fillRect(0,height-24,width,24);ctx.fillRect(0,0,46,height);ctx.fillStyle='#9bb0bc';ctx.font='10px "Segoe UI",sans-serif';ctx.textAlign='left';
+    const from=world(0,0),to=world(width,height),xs=Math.max(1,Math.ceil(58/scale)),zs=Math.max(1,Math.ceil(32/scale));
+    for(let x=Math.ceil(from.x/xs)*xs;x<=to.x;x+=xs){const sx=Math.round(pan.x+x*scale);if(sx<50||sx>width-35)continue;ctx.fillText(String(x*16),sx+3,height-8);ctx.fillRect(sx,height-24,1,4);}
+    for(let z=Math.ceil(from.z/zs)*zs;z<=to.z;z+=zs){const sy=Math.round(pan.y+z*scale);if(sy<38||sy>height-28)continue;ctx.fillText(String(z*16),5,sy+3);ctx.fillRect(42,sy,4,1);}
+    ctx.fillStyle='#badcb1';ctx.fillText('X / Z',5,height-8);ctx.restore();
   }
   function drawPlacement(p,ghost=false,preview=false,previewError){
     const state=get(),project=state.project,tile=sceneFor(project).tiles.get(p.tileId);if(!tile)return;
@@ -184,7 +189,7 @@ export function createMap(canvas,get,callbacks){
     else if(drag?.placement&&hover){const p=moving();drawPlacement(p,false,true);}
     else if(state.mode==='paint'&&state.brush?.kind==='tile'&&hover){const t=sceneFor(state.project).tiles.get(state.brush.id);if(t)drawPlacement({id:'preview',tileId:t.id,x:snap(hover.x),z:snap(hover.z),y:state.floor,rotation:state.brush.rotation||0,roomId:state.activeRoomId},false,true);}
     if(!state.project.placements.length){ctx.fillStyle='#7b919f';ctx.font='13px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.fillText('왼쪽에서 타일을 골라 첫 공간을 배치하세요',width/2,height/2);ctx.textAlign='left';}
-    reportZoom();
+    drawRulers();reportZoom();
   }
   function drawPalettePreview(){
     const item=paletteDrop;if(!item)return;const state=get(),valid=!item.error,color=valid?'#bbf4ac':'#ef9696';
