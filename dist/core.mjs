@@ -1,3 +1,4 @@
+import {checkFeatures,hasExit,needsV3,resourcePlan} from './features.mjs';
 import {occupancy,conflictingBlock} from './occupancy.mjs';
 import {normalizeAreaCodes} from './hierarchy.mjs';
 import {assertPrograms,programIssues} from './logic.mjs';
@@ -9,6 +10,7 @@ const horizontal=value=>Number.isInteger(value*16)&&Math.abs(value)<=1024;
 export const FACES = ['north','east','south','west'];
 export const OPPOSITE = {north:'south',south:'north',east:'west',west:'east'};
 export const KINDS = {
+  object:{label:'목표 오브젝트',icon:'◉',color:'#e0bf7e'},
   spawn:{label:'시작점',icon:'↗',color:'#9be2bd'},
   terminal:{label:'목표 단말기',icon:'⌘',color:'#80c7ff'},
   alarm:{label:'경보 장치',icon:'!',color:'#f4b875'},
@@ -148,7 +150,7 @@ export function validate(project) {
     if(port.required&&!network.connected.has(port.key)) add('error',`연결 필수 문 '${port.name||port.id}'이 연결되지 않았습니다.`,{kind:'placement',id:port.placementId});
     if((portCounts.get(port.key)||0)>1) add('error','문 하나에 연결 대상이 여러 개입니다.',{kind:'placement',id:port.placementId});
   }
-  for(const type of ['spawn','extraction']) if(!project.gimmicks.some(g=>g.type===type)) add('error',`${KINDS[type].label}이 필요합니다.`);
+  if(!project.gimmicks.some(g=>g.type==='spawn'))add('error','시작점이 필요합니다.');if(!hasExit(project))add('error','탈출 방법이 필요합니다.');
   for(const gimmick of project.gimmicks) {
     const placement=project.placements.find(p=>p.id===gimmick.placementId),tile=placement&&tileOf(project,placement);
     if(!tile) {add('error',`${gimmick.name}: 소속 타일이 없습니다.`,{kind:'gimmick',id:gimmick.id});continue;}
@@ -170,16 +172,17 @@ export function validate(project) {
     const unreachable=project.placements.filter(p=>!reachable.has(p.id));
     if(unreachable.length) add('warning',`시작점에서 문 연결로 도달할 수 없는 타일이 ${unreachable.length}개입니다.`,{kind:'placement',id:unreachable[0].id});
   }
+  if(project.resourceRules?.length)try{resourcePlan(project);}catch(error){add('error',error.message);}
   issues.push(...programIssues(project),...missionIssues(project));
   add('info','스캔은 모드 0.5.0 이상에서 실행합니다. 실제 타일 NBT는 외부 assets/tile 폴더에서 읽습니다.');
   return issues;
 }
 export function exportStage(project) {
   const network=connections(project),ready=runtimeIssues(project,validate(project)).length===0;
-  return {format:'erosionsector-stage',version:2,status:ready?'ready':'draft',runtimeReady:ready,cellSize:CELL,tileRules:TILE_RULES,
-    stage:{id:project.id,name:project.name,author:project.author,difficulty:project.difficulty,description:project.description,chapter:clone(project.chapter),missionCode:project.missionCode,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers,missionMode:project.missionMode,objectives:clone(project.objectives||[])},
+  return {format:'erosionsector-stage',version:needsV3(project)?3:2,status:ready?'ready':'draft',runtimeReady:ready,cellSize:CELL,tileRules:TILE_RULES,
+    stage:{id:project.id,name:project.name,author:project.author,difficulty:project.difficulty,description:project.description,chapter:clone(project.chapter),missionCode:project.missionCode,minPlayers:project.minPlayers,maxPlayers:project.maxPlayers,missionMode:project.missionMode,objectives:clone(project.objectives||[]),variables:clone(project.variables||[]),enemyGroups:clone(project.enemyGroups||[]),resourceRules:clone(project.resourceRules||[]),objectiveGroups:clone(project.objectiveGroups||[]),successMode:project.successMode||'extraction'},
     zones:clone(project.zones),rooms:clone(project.rooms),
-    tiles:project.tiles.map(t=>({id:t.id,name:t.name,category:t.category,size:clone(t.size),ports:clone(t.ports),asset:t.asset?{name:t.asset.name,reference:t.asset.reference,sha256:t.asset.sha256,blockCount:t.asset.blockCount,paletteCount:t.asset.paletteCount,entityCount:t.asset.entityCount,markerCount:t.asset.markerCount,namespaces:clone(t.asset.namespaces),dataVersion:t.asset.dataVersion}:null})),
+    tiles:project.tiles.map(t=>({id:t.id,name:t.name,category:t.category,size:clone(t.size),ports:clone(t.ports),asset:t.asset?{name:t.asset.name,reference:t.asset.reference,sha256:t.asset.sha256,blockCount:t.asset.blockCount,paletteCount:t.asset.paletteCount,entityCount:t.asset.entityCount,markerCount:t.asset.markerCount,namespaces:clone(t.asset.namespaces),dataVersion:t.asset.dataVersion,slots:clone(t.asset.slots||[])}:null})),
     placements:project.placements.map(p=>({...p,blockPosition:{x:p.x*16,y:p.y*8,z:p.z*16}})),
     connections:network.pairs.map(({a,b})=>({from:{placementId:a.placementId,portId:a.id},to:{placementId:b.placementId,portId:b.id}})),
     gimmicks:clone(project.gimmicks),links:clone(project.links),programs:clone(project.programs||[]),validation:validate(project)};
@@ -206,14 +209,14 @@ export function demoProject() {
     {id:'g5',type:'scan',name:'전력 복구 스캔',placementId:'p7',position:{x:8,y:1,z:8},settings:{duration:15,radius:2.5,requiredPlayers:'all',positionMode:'fixed',steps:[]}},
     {id:'g6',type:'extraction',name:'복귀 집결 지점',placementId:'p1',position:{x:11,y:1,z:8},settings:{duration:10}}
   ];
-  return normalizeAreaCodes({format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
+  return checkFeatures(normalizeAreaCodes({format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
     author:'Erosion Sector',difficulty:'보통',description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',chapter:{id:'a',name:'관측 시설',description:''},missionCode:'A1',minPlayers:1,maxPlayers:4,
     tiles,placements,gimmicks,missionMode:'extract',objectives:[],programs:[],links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
     zones:[{id:'z1',name:'진입 시설',color:'#78968d'},{id:'z2',name:'관측 연구동',color:'#748eae'}],
     rooms:[{id:'r1',code:'101',name:'진입실',zoneId:'z1',color:'#7ba392'},{id:'r2',code:'102',name:'진입 복도',zoneId:'z1',color:'#6c8992'},
       {id:'r3',code:'103',name:'관측 홀',zoneId:'z1',color:'#809f9b'},{id:'r4',code:'201',name:'보안 통로',zoneId:'z2',color:'#b59b72'},
       {id:'r5',code:'202',name:'연구실',zoneId:'z2',color:'#8c93b5'},{id:'r6',code:'203',name:'상층 연결로',zoneId:'z2',color:'#688ea5'},
-      {id:'r7',code:'204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]});
+      {id:'r7',code:'204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]}));
 }
 export function emptyProject() {
   const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.author='';p.difficulty='';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.tiles=[];p.placements=[];p.gimmicks=[];p.links=[];
@@ -261,6 +264,6 @@ export function validateProjectDraft(p) {
   for(const z of p.zones) if(!text(z.name)||!/^#[0-9a-f]{6}$/i.test(z.color)) fail('구역 정보가 올바르지 않습니다.');
   for(const g of p.gimmicks) if(!KINDS[g.type]||!text(g.name)||!text(g.placementId)||!g.position||!Object.values(g.position).every(Number.isFinite)||!['x','y','z'].every(k=>Number.isFinite(g.position[k]))||!g.settings||typeof g.settings!=='object') fail('기믹 정보가 올바르지 않습니다.');
   for(const l of p.links) if(!text(l.from)||!text(l.to)||!text(l.event)||!text(l.action)) fail('기믹 연결 정보가 올바르지 않습니다.');
-  if(p.programs===undefined)p.programs=[];normalizeMission(p);assertPrograms(p.programs);
+  if(p.programs===undefined)p.programs=[];checkFeatures(p);normalizeMission(p);assertPrograms(p.programs);
   return p;
 }

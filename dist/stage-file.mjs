@@ -10,7 +10,7 @@ export function packStage(input){
   const project=readProject(input),stage=exportStage(project);
   for(const tile of stage.tiles)if(tile.asset&&!tileReference(tile.asset.reference))
     throw new Error(`${tile.name}: assets/tile 폴더 기준 경로를 지정하세요. 예: 연구소/복도.nbt`);
-  const manifest={format:stage.format,version:2,status:stage.status,runtimeReady:stage.runtimeReady,tileRoot:'assets/tile',cellSize:CELL,tileRules:TILE_RULES};
+  const manifest={format:stage.format,version:stage.version,status:stage.status,runtimeReady:stage.runtimeReady,tileRoot:'assets/tile',cellSize:CELL,tileRules:TILE_RULES};
   const layout={placements:stage.placements.map(({x,y,z,...p})=>p),rooms:stage.rooms,zones:stage.zones,connections:stage.connections};
   const values=[manifest,stage.stage,stage.tiles,layout,{gimmicks:stage.gimmicks,links:stage.links,blockFormat:1,programs:stage.programs}];
   const files=Object.fromEntries(NAMES.map((name,i)=>[name,encoder.encode(JSON.stringify(values[i],null,2))]));
@@ -34,7 +34,7 @@ export function unpackStage(input){
   const [manifest,stage,tiles,layout,logic]=NAMES.map(name=>{
     try{return JSON.parse(decoder.decode(files[name]));}catch{throw new Error(name+': JSON 설정이 올바르지 않습니다.');}
   });
-  if(manifest?.format!=='erosionsector-stage'||manifest.version!==2||!['tile','assets/tile'].includes(manifest.tileRoot)||
+  if(manifest?.format!=='erosionsector-stage'||![2,3].includes(manifest.version)||!['tile','assets/tile'].includes(manifest.tileRoot)||
     !Object.keys(CELL).every(k=>manifest.cellSize?.[k]===CELL[k])||!Object.keys(TILE_RULES).every(k=>manifest.tileRules?.[k]===TILE_RULES[k]))
     throw new Error('지원하는 Erosion Sector 스테이지 형식이 아닙니다.');
   if(!stage||!Array.isArray(tiles)||!Array.isArray(layout?.placements)||!logic)throw new Error('스테이지 설정이 올바르지 않습니다.');

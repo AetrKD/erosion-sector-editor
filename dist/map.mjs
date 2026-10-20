@@ -1,3 +1,4 @@
+import {magnetic} from './features.mjs';
 import {isScan,scanSteps} from './scan.mjs';
 import {scanCenter,scanMove,scanCandidates} from './authoring.mjs';
 import {dimensions,worldPoint,connections,placementError,KINDS,inversePoint} from './core.mjs';
@@ -10,6 +11,10 @@ export function createMap(canvas,get,callbacks){
   let width=0,height=0,scale=65,pan={x:0,y:0},hover=null,drag=null,space=false,initialized=false;
   let isoRenderer,isoCamera,isoBoxes=[];
   let paletteBrush=null,paletteDrop=null;
+  const rawGet=get;let virtualKey='',virtualProject;
+  function moving(){if(!drag?.placement||!hover)return null;const raw=rawGet();return magnetic(raw.project,{...drag.placement,x:snap(hover.x)-drag.offset.x,z:snap(hover.z)-drag.offset.z});}
+  get=()=>{const state=rawGet(),p=moving();if(!p)return state;const key=p.id+':'+p.x+':'+p.z;if(key!==virtualKey||virtualProject?.source!==state.project){virtualKey=key;virtualProject={source:state.project,project:{...state.project,placements:state.project.placements.map(x=>x.id===p.id?p:x)}};}return {...state,project:virtualProject.project};};
+
   let networkProject,network,drawRequest=null,destroyed=false;
   let sceneProject,sceneIndex,lastZoom,lastCursor,lastCamera,lastDrop;
   function sceneFor(project=get().project){if(sceneProject!==project){sceneProject=project;sceneIndex=createSceneIndex(project);}return sceneIndex;}
@@ -32,7 +37,8 @@ export function createMap(canvas,get,callbacks){
   function networkFor(project){if(networkProject!==project){networkProject=project;network=connections(project);}return network;}
   function requestDraw(){if(drawRequest===null&&!destroyed)drawRequest=requestAnimationFrame(()=>{drawRequest=null;draw();});}
   const orbit={azimuth:45,elevation:30,offset:{x:0,y:0}};
-  function boxes(){const selected=get().selection;return sceneFor().geometry.map(b=>({...b,selected:selected?.kind==='placement'&&selected.id===b.id}));}
+  function boxes(){const state=get(),selected=state.selection;return sceneFor().geometry.map(b=>{const p=state.project.placements.find(p=>p.id===b.id),t=p&&tileOfForLayer(p);let color=b.color;if(state.ghost&&p&&!(p.y<=state.floor&&p.y+(t?.size.y||8)/8>state.floor)){const rgb=color.replace('#','').match(/../g)?.map(x=>parseInt(x,16))||[80,90,100];color='#'+rgb.map((n,i)=>Math.round(n*.18+[16,25,31][i]*.82).toString(16).padStart(2,'0')).join('');}return {...b,color,selected:selected?.kind==='placement'&&selected.id===b.id};});}
+  function tileOfForLayer(p){return sceneFor().tiles.get(p.tileId);}
   function camera(list=null,unit=scale){return createCamera({width,height,scale:unit,target:list?sceneTarget(list):sceneFor().target,...orbit});}
   const snap=value=>Math.floor(value*16)/16;
   function screen(x,z){return {x:pan.x+x*scale,z:pan.y+z*scale};}
@@ -175,7 +181,7 @@ export function createMap(canvas,get,callbacks){
     for(const p of state.project.placements)if(active(p)&&p.id!==drag?.placement?.id)drawPlacement(p);
     drawPorts();drawGimmicks();
     if(paletteBrush)drawPalettePreview();
-    else if(drag?.placement&&hover){const p={...drag.placement,x:snap(hover.x)-drag.offset.x,z:snap(hover.z)-drag.offset.z};drawPlacement(p,false,true);}
+    else if(drag?.placement&&hover){const p=moving();drawPlacement(p,false,true);}
     else if(state.mode==='paint'&&state.brush?.kind==='tile'&&hover){const t=sceneFor(state.project).tiles.get(state.brush.id);if(t)drawPlacement({id:'preview',tileId:t.id,x:snap(hover.x),z:snap(hover.z),y:state.floor,rotation:state.brush.rotation||0,roomId:state.activeRoomId},false,true);}
     if(!state.project.placements.length){ctx.fillStyle='#7b919f';ctx.font='13px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.fillText('왼쪽에서 타일을 골라 첫 공간을 배치하세요',width/2,height/2);ctx.textAlign='left';}
     reportZoom();
@@ -199,7 +205,7 @@ export function createMap(canvas,get,callbacks){
     const next=evaluatePalette(state.project,paletteBrush,point,state.activeRoomId,{fresh});
     paletteDrop=next;canvas.dataset.dropState=next.error?'invalid':'valid';
     const name=paletteBrush.kind==='tile'?next.tile?.name:KINDS[paletteBrush.id]?.label;
-    reportDrop({valid:!next.error,message:next.error||`${name} · ${state.floor>=0?state.floor+1+'층':'지하 '+Math.abs(state.floor)+'층'} · 놓아서 배치`});requestDraw();return next;
+    reportDrop({valid:!next.error,message:next.error||`${name} · ${state.floor>=0?state.floor+1+'층':'지하 '+Math.abs(state.floor)+'층'}${next.snapped?' · 문 맞춤':''} · 놓아서 배치`});requestDraw();return next;
   }
   canvas.addEventListener('dragover',e=>{const item=previewDrop(e);if(!item)return;e.preventDefault();e.dataTransfer.dropEffect=item.error?'none':'copy';});
   canvas.addEventListener('dragenter',e=>{if(paletteBrush&&e.dataTransfer?.types.includes(PALETTE_MIME))e.preventDefault();});
@@ -236,7 +242,7 @@ export function createMap(canvas,get,callbacks){
     }
     if(get().view!=='iso'){const x=snap(hover.x),y=get().floor,z=snap(hover.z),key=[x,y,z].join(':');if(key!==lastCursor){lastCursor=key;callbacks.cursor?.(x,y,z);}}requestDraw();});
   canvas.addEventListener('pointerup',e=>{if(drag?.scan&&drag.patch)callbacks.scan?.(drag.scan.g.id,drag.scan.index,drag.patch);canvas.style.cursor='';if(drag?.orbit&&!drag.moved&&isoCamera){const pos=xy(e),hit=pickBox(isoBoxes,isoCamera,pos.x,pos.y);callbacks.select(hit?{kind:'placement',id:hit.id}:null);}
-    if(drag?.placement){const point=world(xy(e).x,xy(e).y),p={...drag.placement,x:snap(point.x)-drag.offset.x,z:snap(point.z)-drag.offset.z};if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
+    if(drag?.placement){const point=world(xy(e).x,xy(e).y),p=magnetic(rawGet().project,{...drag.placement,x:snap(point.x)-drag.offset.x,z:snap(point.z)-drag.offset.z});if(p.x!==drag.placement.x||p.z!==drag.placement.z)callbacks.move(p);}drag=null;draw();});
   canvas.addEventListener('pointercancel',()=>{drag=null;canvas.style.cursor='';draw();});canvas.addEventListener('pointerleave',()=>{if(!drag)hover=null;draw();});canvas.addEventListener('contextmenu',e=>e.preventDefault());
   canvas.addEventListener('wheel',e=>{e.preventDefault();const point=xy(e),before=world(point.x,point.y),next=Math.max(get().view==='iso'?8:20,Math.min(get().view==='iso'?130:1024,scale*(e.deltaY<0?1.12:1/1.12)));
     if(get().view==='iso'){const factor=next/scale;orbit.offset={x:point.x-width/2-(point.x-width/2-orbit.offset.x)*factor,y:point.y-height/2-(point.y-height/2-orbit.offset.y)*factor};}

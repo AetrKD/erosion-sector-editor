@@ -1,14 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyProject} from '../dist/core.mjs';
-import {workflowSteps} from '../dist/workflow.mjs';
-
-test('guidance is derived from real tile links, exact entry/exit counts and current issues',()=>{
-  const p=emptyProject(),before=structuredClone(p);let steps=workflowSteps(p,[{severity:'error'}]);
-  assert.equal(steps.find(s=>s.id==='tiles').done,false);assert.equal(steps.find(s=>s.id==='validation').done,false);assert.deepEqual(p,before);
-  p.tiles=[{asset:{reference:'set/tile.nbt'}}];assert.equal(workflowSteps(p)[0].done,false);
-  p.tiles[0].asset.bytes='AA==';p.placements=[{id:'p'}];p.gimmicks=[{type:'spawn'},{type:'extraction'}];p.missionMode='extract';
-  assert.ok(workflowSteps(p).every(s=>s.done));p.gimmicks.push({type:'spawn'});assert.equal(workflowSteps(p)[2].done,false);
-  p.missionMode='objectives';p.objectives=[];assert.equal(workflowSteps(p)[3].done,false);p.objectives=[{id:'goal'}];assert.equal(workflowSteps(p)[3].done,true);
-  assert.equal(workflowSteps(p,[{severity:'warning'}])[4].done,false);
-});
+import {demoProject} from '../dist/core.mjs';
+import {workflowSteps,workflowMarkup} from '../dist/workflow.mjs';
+test('checklist has only door, entry and escape checks; multiple entries and direct escape are accepted',()=>{const p=demoProject(),before=structuredClone(p);let steps=workflowSteps(p);assert.equal(steps.length,3);assert.equal(steps[1].done,true);assert.equal(steps[2].done,true);assert.deepEqual(p,before);p.gimmicks.push({...p.gimmicks.find(g=>g.type==='spawn'),id:'another-entry'});assert.equal(workflowSteps(p)[1].done,true);p.gimmicks=p.gimmicks.filter(g=>g.type!=='extraction');assert.equal(workflowSteps(p)[2].done,false);p.successMode='direct';p.objectives=[{id:'survive',required:true}];assert.equal(workflowSteps(p)[2].done,true);assert.ok(!workflowMarkup(workflowSteps(p),s=>s).includes('<button'));});

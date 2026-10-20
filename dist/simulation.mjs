@@ -7,6 +7,7 @@ const normalize=value=>String(value||'').trim().replace(/\s+/g,' ').toUpperCase(
 export function createSimulation(source){
   const project=structuredClone(source),events=[],jobs=[],fired=new Set(),active=new Set(),seen=new Map();
   const state={tick:0,result:'',error:'',doors:{},lights:{},gimmicks:{},objectives:{},variables:{},players:{},log:[]};
+  const inactiveGoals=new Set((project.objectives||[]).filter(o=>o.enabled===false).map(o=>o.id)),goalCounts=new Map(),survival=new Map();state.enemies={};state.music={};for(const v of project.variables||[])state.variables[v.id]=v.initial;for(const g of project.enemyGroups||[])state.enemies[g.id]={active:!!g.enabled,waves:0,alive:0,next:0};
   const scans=new Map(),securityDoors=new Set(),net=connections(project);let operations=0,previousTile='';
   const log=(message,program='')=>{state.log.push({tick:state.tick,message,program});if(state.log.length>300)state.log.shift();};
   const fault=message=>{state.error=message;events.length=0;jobs.length=0;active.clear();log(message);};
@@ -19,11 +20,12 @@ export function createSimulation(source){
   }
   const gimmick=id=>project.gimmicks.find(g=>g.id===id);
   function complete(id){const s=state.gimmicks[id];if(s&&!s.complete){s.complete=true;emit('when.complete',id,'',gimmick(id).placementId);}}
-  function objective(id){if(!(id in state.objectives)||state.objectives[id])return;state.objectives[id]=true;log('목표 완료 · '+project.objectives.find(o=>o.id===id).name);emit('when.objective',id);
+  function objective(id){if(!(id in state.objectives)||state.objectives[id]||inactiveGoals.has(id))return;state.objectives[id]=true;log('목표 완료 · '+project.objectives.find(o=>o.id===id).name);emit('when.objective',id);emit('when.progress',id,'complete');
     const o=project.objectives.find(o=>o.id===id);if(['command','collect'].includes(o.type))complete(o.targetId);
+    if(project.successMode==='direct'&&project.objectives.filter(o=>o.required).every(o=>state.objectives[o.id])){state.result='success';events.length=0;jobs.length=0;return;}
     if(project.objectives.filter(o=>o.required).every(o=>state.objectives[o.id]))for(const g of project.gimmicks)if(g.type==='extraction'&&g.settings.unlockOnObjectives!==false){state.gimmicks[g.id].enabled=true;const s=scans.get(g.id);if(s&&!s.active&&!s.complete){s.active=true;s.index=0;s.paused=false;state.gimmicks[g.id].scan='active';state.gimmicks[g.id].scanStep=1;}}
   }
-  function matching(type,target,value=''){for(const o of project.objectives)if(o.type===type&&o.targetId===target&&(type!=='command'||normalize(o.command)===normalize(value)))objective(o.id);}
+  function matching(type,target,value=''){for(const o of project.objectives)if(o.type===type&&o.targetId===target&&(type!=='command'||normalize(o.command)===normalize(value))){if(inactiveGoals.has(o.id)||state.objectives[o.id])continue;const n=(goalCounts.get(o.id)||0)+1;goalCounts.set(o.id,n);emit('when.progress',o.id,'progress');if(n>=(o.amount||1))objective(o.id);}}
   function control(id,mode){const s=scans.get(id);if(!s)return;if(mode==='start'&&s.active)return;
     if(mode==='start'||mode==='reset'){s.index=0;s.complete=false;s.active=true;s.paused=false;state.gimmicks[id].enabled=true;state.gimmicks[id].complete=false;emit('when.scan',id,'start',gimmick(id).placementId);}
     else if(mode==='pause')s.paused=true;else if(mode==='resume')s.paused=false;else if(mode==='stop'){s.active=false;state.gimmicks[id].enabled=false;}
@@ -31,37 +33,40 @@ export function createSimulation(source){
   }
   function trigger(b,e,history){
     if(b.type==='when.all'||b.type==='when.any'){let any=false;for(const child of b.items)if(trigger(child,e,history)){history.add(child.id);any=true;}if(b.type==='when.any')return any;if(!b.items.length||!b.items.every(c=>history.has(c.id)))return false;b.items.forEach(c=>history.delete(c.id));return true;}
-    if(b.type!==e.type)return false;const a=b.args,key={'when.area':'roomId','when.tile':'placementId','when.signal':'signal','when.door':'doorId','when.doorAttempt':'doorId','when.objective':'objectiveId'}[b.type]||'gimmickId';
+    if(b.type!==e.type)return false;const a=b.args,key={'when.area':'roomId','when.tile':'placementId','when.signal':'signal','when.door':'doorId','when.doorAttempt':'doorId','when.objective':'objectiveId','when.progress':'objectiveId'}[b.type]||'gimmickId';
     if(b.type!=='when.start'&&a[key]!==e.target)return false;
-    return b.type==='when.command'?normalize(a.command)===normalize(e.value):['when.door','when.scan'].includes(b.type)?a.state===e.value:true;
+    return b.type==='when.command'?normalize(a.command)===normalize(e.value):['when.door','when.scan','when.progress'].includes(b.type)?a.state===e.value:true;
   }
   function condition(b){const a=b.args,items=b.items||[];switch(b.type){
     case 'check.all':return !!items.length&&items.every(condition);case 'check.any':return items.some(condition);case 'check.not':return items.length===1&&!condition(items[0]);
     case 'check.players':return !!state.players[a.roomId];case 'check.objective':return !!state.objectives[a.objectiveId];case 'check.complete':return !!state.gimmicks[a.gimmickId]?.complete;
     case 'check.alarm':return a.state==='active'?!!state.gimmicks[a.gimmickId]?.alarm:!!state.gimmicks[a.gimmickId]?.complete;
     case 'check.door':return a.state==='locked'?state.doors[a.doorId]?.locked===true:state.doors[a.doorId]?.open===(a.state==='open');
-    case 'check.variable':{const x=state.variables[a.variable]||0,y=a.value;return {eq:x===y,ne:x!==y,gt:x>y,gte:x>=y,lt:x<y,lte:x<=y}[a.operator]||false;}
+    case 'check.variable':{const x=state.variables[a.variable]||0,y=a.valueVariable?(state.variables[a.valueVariable]||0):a.value;return {eq:x===y,ne:x!==y,gt:x>y,gte:x>=y,lt:x<y,lte:x<=y}[a.operator]||false;}
     default:fault('지원하지 않는 조건 · '+b.type);return false;
   }}
   function action(type,a,e={}){switch(type){
-    case 'do.variable':state.variables[a.variable]=Math.max(-1e9,Math.min(1e9,(a.operation==='add'?(state.variables[a.variable]||0):0)+a.value));break;
+    case 'do.variable':state.variables[a.variable]=Math.max(-1e9,Math.min(1e9,(a.operation==='add'?(state.variables[a.variable]||0):0)+(a.valueVariable?(state.variables[a.valueVariable]||0):a.value)));break;
     case 'do.signal':emit('when.signal',a.signal,'',e.placement);break;
-    case 'do.objective':objective(a.objectiveId);break;
+    case 'do.objective':{const o=project.objectives.find(o=>o.id===a.objectiveId);if(a.action==='activate'){inactiveGoals.delete(a.objectiveId);if(o?.type==='scan')control(o.targetId,'start');}else if(a.action==='deactivate'){inactiveGoals.add(a.objectiveId);if(o?.type==='scan')control(o.targetId,'stop');}else {inactiveGoals.delete(a.objectiveId);objective(a.objectiveId);}break;}
+    case 'do.enemies':{const group=state.enemies[a.groupId];if(group){group.active=a.action==='start';if(group.active){group.waves=0;group.next=state.tick;}}break;}
+    case 'do.music':if(a.action==='stop')delete state.music[a.sound];else state.music[a.sound]=a.volume;break;
     case 'do.scan':control(a.gimmickId,a.action);break;
     case 'do.gimmick':{const s=state.gimmicks[a.gimmickId];if(!s)break;if(a.action==='complete')complete(a.gimmickId);else if(scans.has(a.gimmickId))control(a.gimmickId,a.action==='deactivate'?'stop':'start');else {s.enabled=a.action!=='deactivate';if(s.enabled&&gimmick(a.gimmickId).type==='alarm')s.alarm=true;}break;}
-    case 'do.alarm':{const s=state.gimmicks[a.gimmickId];if(s?.enabled)s.alarm=true;break;}
+    case 'do.alarm':{const s=state.gimmicks[a.gimmickId];if(s?.enabled)s.alarm=a.action!=='stop';break;}
     case 'do.wave':if(state.gimmicks[a.gimmickId])state.gimmicks[a.gimmickId].enabled=true;break;
     case 'do.door':{const s=state.doors[a.doorId];if(!s)break;if(a.action==='lock')s.locked=securityDoors.has(a.doorId);else if(a.action==='unlock')s.locked=false;else {const open=a.action==='open';const ids=[a.doorId,...(net.pairs.filter(pair=>pair.a.key===a.doorId||pair.b.key===a.doorId).flatMap(pair=>[pair.a.key,pair.b.key]))];for(const id of new Set(ids)){const d=state.doors[id];if(d&&d.open!==open){d.open=open;emit('when.door',id,open?'open':'closed',id.slice(0,id.lastIndexOf(':')));}}}break;}
-    case 'do.areaLights':for(const p of project.placements)if(p.roomId===a.roomId)state.lights[p.id]=a.mode;break;
+    case 'do.areaLights':for(const p of project.placements)if(p.roomId===a.roomId||'tile:'+p.id===a.roomId)state.lights[p.id]=a.mode;break;
     case 'do.tileLights':state.lights[a.placementId]=a.mode;break;
     case 'do.message':log(a.message);break;
     case 'do.mission':state.result=a.result;log(a.result==='success'?'임무 성공':'임무 실패');events.length=0;jobs.length=0;break;
     default:fault('지원하지 않는 동작 · '+type);
   }}
-  function tick(){if(state.error||state.result)return;state.tick++;let budget=512;
+  function tick(){if(state.error||state.result)return;state.tick++;for(const g of project.enemyGroups||[]){const e=state.enemies[g.id];if(e.active&&(g.waves===0||e.waves<g.waves)&&state.tick>=e.next){e.waves++;e.alive+=g.count;e.next=state.tick+g.interval*20;}}for(const o of project.objectives){if(inactiveGoals.has(o.id)||state.objectives[o.id])continue;if(o.type==='survive'){const ticks=(survival.get(o.id)||0)+1;survival.set(o.id,ticks);if(ticks>=(o.amount||1)*20)objective(o.id);}if(o.type==='clear'){const e=state.enemies[o.targetId],g=project.enemyGroups?.find(g=>g.id===o.targetId);if(e&&e.waves>0&&e.alive===0&&(!e.active||g.waves>0&&e.waves>=g.waves))objective(o.id);}}let budget=512;
     while(events.length&&budget-->0){const e=events.shift();for(const p of project.programs){if(!p.enabled||fired.has(p.id)||active.has(p.id))continue;if(!seen.has(p.id))seen.set(p.id,new Set());if(trigger(p.trigger,e,seen.get(p.id))){if(jobs.length>=128){fault('동시 이벤트가 128개를 넘었습니다.');return;}jobs.push({rule:p.id,event:e,due:0,stack:[{blocks:p.actions,index:0,remaining:1}]});active.add(p.id);if(p.once)fired.add(p.id);log('이벤트 시작 · '+p.name,p.id);}}}
-    for(const job of [...jobs]){if(state.error||state.result)return;if(job.due>state.tick)continue;let slice=128;while(job.stack.length&&slice-->0&&budget-->0){if(++operations>100000){fault('모의 실행 한도에 도달했습니다. 초기화 후 순환 이벤트를 확인하세요.');return;}const c=job.stack.at(-1);if(c.index>=c.blocks.length){if(--c.remaining>0)c.index=0;else job.stack.pop();continue;}const b=c.blocks[c.index++],a=b.args;log(blockDescription(b,project),job.rule);
+    for(const job of [...jobs]){if(state.error||state.result)return;if(job.due>state.tick)continue;let slice=128;while(job.stack.length&&slice-->0&&budget-->0){if(++operations>100000){fault('모의 실행 한도에 도달했습니다. 초기화 후 순환 이벤트를 확인하세요.');return;}const c=job.stack.at(-1);if(c.index>=c.blocks.length){if(c.until){if(c.until.every(condition)){job.stack.pop();continue;}c.index=0;job.due=state.tick+1;break;}if(--c.remaining>0)c.index=0;else job.stack.pop();continue;}const b=c.blocks[c.index++],a=b.args;log(blockDescription(b,project),job.rule);
       if(b.type==='flow.wait'){job.due=state.tick+Math.max(1,Math.ceil(a.seconds*20));break;}
+      else if(b.type==='flow.until'){if(!b.conditions.every(condition)){job.stack.push({blocks:b.body,index:0,remaining:1,until:b.conditions});job.due=state.tick+1;break;}}
       else if(b.type==='flow.repeat')job.stack.push({blocks:b.body,index:0,remaining:a.count});
       else if(b.type==='flow.if')job.stack.push({blocks:b.conditions.every(condition)?b.then:b.else,index:0,remaining:1});
       else action(b.type,a,job.event);if(state.error||state.result)return;
@@ -83,6 +88,8 @@ export function createSimulation(source){
       for(const g of project.gimmicks)if(g.type==='trigger'&&g.placementId===target&&state.gimmicks[g.id].enabled)emit('when.interact',g.id,'',target);
       tick();return;
     }
+    if(type==='when.enemiesCleared'){if(state.enemies[target])state.enemies[target].alive=0;tick();return;}
+    if(type==='when.interact')matching('interact',target);
     if(type==='when.objective'){objective(target);tick();return;}
     if(type==='when.complete'){complete(target);tick();return;}
     if(type==='when.alarm'){if(state.gimmicks[target])state.gimmicks[target].alarm=false;complete(target);}
@@ -95,6 +102,7 @@ export function createSimulation(source){
   for(const p of project.placements){state.lights[p.id]='on';for(const port of project.tiles.find(t=>t.id===p.tileId)?.ports||[]){if(port.doorSettings?.type==='SECURITY')securityDoors.add(p.id+':'+port.id);state.doors[p.id+':'+port.id]={open:false,locked:port.doorSettings?.type==='SECURITY'&&!!port.doorSettings.access&&port.doorSettings.access!=='HOLD'};}}
   for(const o of project.objectives)state.objectives[o.id]=false;
   for(const g of project.gimmicks){const enabled=g.settings.enabled??(g.type!=='extraction'||project.missionMode==='extract');state.gimmicks[g.id]={enabled,complete:false,alarm:false};if(isScan(g.type)){scans.set(g.id,{active:enabled,paused:false,complete:false,index:0});state.gimmicks[g.id].scan=enabled?'active':'stopped';state.gimmicks[g.id].scanStep=1;state.gimmicks[g.id].scanSteps=scanSteps(g).length;}}
+  for(const o of project.objectives)if(o.type==='scan'&&inactiveGoals.has(o.id))control(o.targetId,'stop');
   for(const [id,s] of scans)if(s.active)emit('when.scan',id,'start',gimmick(id).placementId);emit('when.start');tick();
   return {state,input,advance(seconds){if(!Number.isFinite(seconds)||seconds<0||seconds>60)throw new Error('한 번에 0~60초까지 진행할 수 있습니다.');for(let i=0;i<Math.ceil(seconds*20)&&!state.result&&!state.error;i++)tick();},setPlayers(room,present){state.players[room]=!!present;},snapshot:()=>structuredClone({...state,pending:events.length+jobs.length})};
 }

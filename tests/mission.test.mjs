@@ -10,7 +10,7 @@ test('supply pack counts survive stage archives and reject invalid or overflowin
   const {project:p}=await runtimeFixture(),s=p.gimmicks.find(g=>g.id==='supply').settings;s.ammoPacks=5;s.healthPacks=3;
   const restored=unpackStage(packStage(p)).gimmicks.find(g=>g.id==='supply').settings;assert.equal(restored.ammoPacks,5);assert.equal(restored.healthPacks,3);
   for(const invalid of [-1,1.5,37,'4']){s.ammoPacks=invalid;assert.throws(()=>readProject(p),/보급 팩 수량/);}
-  s.ammoPacks=33;s.healthPacks=1;assert.throws(()=>readProject(p),/9칸/);s.ammoPacks=32;s.healthPacks=4;assert.doesNotThrow(()=>readProject(p));
+  s.ammoPacks=36;s.healthPacks=6;assert.throws(()=>readProject(p),/9칸/);s.ammoPacks=32;s.healthPacks=4;assert.doesNotThrow(()=>readProject(p));
 });
 import {createBlock,programIssues,targetOptions} from '../dist/logic.mjs';
 test('real external-tile mission round trips objectives, alarms, cargo and command triggers ready for the mod',async()=>{const f=await runtimeFixture();assert.equal(f.exported.runtimeReady,true);const p=unpackStage(f.bytes);assert.equal(p.missionMode,'objectives');assert.deepEqual(p.objectives,f.project.objectives);assert.equal(p.gimmicks.find(g=>g.type==='alarm').settings.distance,2);assert.equal(p.gimmicks.find(g=>g.type==='keycard').settings.containerId,'supply');assert.equal(p.programs[0].trigger.type,'when.command');assert.equal(p.tiles[0].asset.bytes,undefined);assert.deepEqual(unpackStage(packStage(p)),p);});

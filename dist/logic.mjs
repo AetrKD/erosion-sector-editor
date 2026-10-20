@@ -5,6 +5,7 @@ const choice=(label,value,options)=>field(label,'choice',value,{options});
 const text=(label,value,max=160)=>field(label,'text',value,{max});
 const definition=(category,label,fields={},slots={})=>({category,label,fields,slots});
 export const BLOCKS=Object.freeze({
+  'when.progress':definition('trigger','목표 진행',{objectiveId:target('목표','objective'),state:choice('진행','complete',[['progress','진행'],['complete','완료']])}),
   'when.start':definition('trigger','스테이지가 시작되면'),
   'when.area':definition('trigger','구역에 진입하면',{roomId:target('진입 구역','room')}),
   'when.tile':definition('trigger','하위 구역에 진입하면',{placementId:target('진입 타일','placement')}),
@@ -26,30 +27,35 @@ export const BLOCKS=Object.freeze({
   'check.alarm':definition('condition','알람 상태를 확인한다',{gimmickId:target('알람','alarm'),state:choice('알람 상태','active',[['active','진행 중'],['complete','종료됨']])}),
   'check.complete':definition('condition','기믹 목표가 완료되었다',{gimmickId:target('기믹','gimmick')}),
   'check.door':definition('condition','문의 상태가 같다',{doorId:target('문 · 이쪽 면','door'),state:choice('상태','open',[['open','열림'],['closed','닫힘'],['locked','잠김']])}),
-  'check.variable':definition('condition','변수 값을 비교한다',{variable:text('변수 이름','전력',80),operator:choice('비교','eq',[['eq','='],['ne','≠'],['gt','>'],['gte','≥'],['lt','<'],['lte','≤']]),value:number('비교 값',1,-1000000,1000000)}),
+  'check.variable':definition('condition','변수 값을 비교한다',{variable:text('변수 이름','전력',80),operator:choice('비교','eq',[['eq','='],['ne','≠'],['gt','>'],['gte','≥'],['lt','<'],['lte','≤']]),value:number('비교 값',1,-1000000,1000000),valueVariable:{...text('다른 변수 ID · 비우면 숫자로 비교','',160),optional:true}}),
   'check.all':definition('condition','아래 조건을 모두 만족한다',{}, {items:'condition'}),
   'check.any':definition('condition','아래 조건 중 하나를 만족한다',{}, {items:'condition'}),
   'check.not':definition('condition','아래 조건을 만족하지 않는다',{}, {items:'condition'}),
   'flow.if':definition('control','만약 조건을 만족한다면',{}, {conditions:'condition',then:'statement',else:'statement'}),
   'flow.repeat':definition('control','정해진 횟수만큼 반복',{count:number('반복 횟수',3,1,100)}, {body:'statement'}),
+  'flow.until':definition('control','다음 조건을 만족할 때까지 반복',{}, {conditions:'condition',body:'statement'}),
   'flow.wait':definition('control','잠시 기다리기',{seconds:number('대기 시간 · 초',3)}),
-  'do.areaLights':definition('action','구역 조명 제어',{roomId:target('조명 구역','room'),mode:choice('조명 동작','off',[['on','켜기'],['off','끄기'],['blink','깜빡이기']]),interval:number('깜빡임 간격 · 초',.5,.05,60)}),
+  'do.areaLights':definition('action','조명 제어',{roomId:target('조명 범위','lightTarget'),mode:choice('조명 동작','off',[['on','켜기'],['off','끄기'],['blink','깜빡이기']]),interval:number('깜빡임 간격 · 초',.5,.05,60)}),
   'do.tileLights':definition('action','타일 조명 제어',{placementId:target('조명 타일','placement'),mode:choice('조명 동작','off',[['on','켜기'],['off','끄기'],['blink','깜빡이기']]),interval:number('깜빡임 간격 · 초',.5,.05,60)}),
   'do.door':definition('action','문 제어',{doorId:target('문 · 이쪽 면','door'),action:choice('문 동작','unlock',[['open','열기'],['close','닫기'],['unlock','이쪽 면 잠금 해제'],['lock','이쪽 면 잠그기']])}),
   'do.gimmick':definition('action','기믹 제어',{gimmickId:target('대상 기믹','gimmick'),action:choice('기믹 동작','activate',[['activate','활성화'],['deactivate','비활성화'],['complete','목표 완료 처리']])}),
   'do.scan':definition('action','스캔 제어',{gimmickId:target('대상 스캔','scan'),action:choice('스캔 동작','start',[['start','시작'],['pause','일시정지'],['resume','다시 진행'],['reset','초기화 후 시작'],['stop','종료']])}),
-  'do.alarm':definition('action','경보 시작',{gimmickId:target('경보 장치','alarm')}),
-  'do.objective':definition('action','임무 목표 완료 처리',{objectiveId:target('임무 목표','objective')}),
+  'do.alarm':definition('action','경보 제어',{gimmickId:target('경보 장치','alarm'),action:{...choice('동작','start',[['start','시작'],['stop','정지']]),optional:true}}),
+  'do.objective':definition('action','목표 제어',{objectiveId:target('임무 목표','objective'),action:{...choice('동작','complete',[['activate','활성화'],['deactivate','비활성화'],['complete','완료 처리']]),optional:true}}),
   'do.wave':definition('action','적 출현 시작',{gimmickId:target('적 출현 지점','wave')}),
+  'do.enemies':definition('action','적 생성 제어',{groupId:target('적 생성 그룹','enemyGroup'),action:choice('동작','start',[['start','시작'],['stop','정지']])}),
+  'do.music':definition('action','음악 재생',{sound:text('사운드 리소스 ID','minecraft:music.game',160),action:choice('동작','play',[['play','재생'],['stop','정지']]),volume:number('음량',1,0,2)}),
   'do.message':definition('action','안내 문구 표시',{message:text('표시할 문구','전력이 차단되었습니다.',500),seconds:number('표시 시간 · 초',5,.1,60)}),
   'do.signal':definition('action','신호 보내기',{signal:text('신호 이름','전력_복구',80)}),
-  'do.variable':definition('action','변수 값 변경',{variable:text('변수 이름','전력',80),operation:choice('변경 방법','set',[['set','값 설정'],['add','값 더하기']]),value:number('값',1,-1000000,1000000)}),
-  'do.mission':definition('action','임무 결과 처리',{result:choice('임무 결과','success',[['success','성공'],['failure','실패']])})
+  'do.variable':definition('action','변수 값 변경',{variable:text('변수 이름','전력',80),operation:choice('변경 방법','set',[['set','값 설정'],['add','값 더하기']]),value:number('값',1,-1000000,1000000),valueVariable:{...text('다른 변수 ID · 비우면 숫자 사용','',160),optional:true}}),
+  'do.mission':definition('action','목표 결과 제어 · 실패',{result:choice('임무 결과','failure',[['success','성공'],['failure','실패']])})
 });
 export const CATEGORY_LABELS={trigger:'발생',condition:'조건',control:'흐름',action:'실행'};
 const id=prefix=>prefix+'_'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
 export function accepts(slot,type){const category=BLOCKS[type]?.category;return slot==='statement'?category==='action'||category==='control':slot===category;}
 export function targetOptions(project,kind){
+  if(kind==='lightTarget')return [...project.rooms.map(r=>[r.id,'구역 · '+r.code]),...project.placements.map(p=>['tile:'+p.id,'타일 · '+p.areaCode])];
+  if(kind==='enemyGroup')return (project.enemyGroups||[]).map(g=>[g.id,g.name]);
   if(kind==='scan')return project.gimmicks.filter(g=>g.type==='scan'||g.type==='extraction').map(g=>[g.id,`${project.rooms.find(r=>r.id===project.placements.find(p=>p.id===g.placementId)?.roomId)?.code||'?'} / ${project.placements.find(p=>p.id===g.placementId)?.areaCode||'?'} · ${g.name}`]);
   if(kind==='objective')return (project.objectives||[]).map(o=>[o.id,o.name]);
   if(kind==='room')return project.rooms.map(r=>[r.id,`${r.code}구역 · ${r.name}`]);
@@ -60,6 +66,7 @@ export function targetOptions(project,kind){
 export function createBlock(type,project){
   const def=BLOCKS[type];if(!def)throw new Error('지원하지 않는 이벤트 블록입니다.');
     const args=Object.fromEntries(Object.entries(def.fields).map(([key,f])=>[key,!['number','text','choice'].includes(f.kind)?targetOptions(project,f.kind)[0]?.[0]||'':f.value]));
+  if(['do.variable','check.variable'].includes(type)&&project.variables?.length)args.variable=project.variables[0].id;
   return {id:id('block'),type,args,...Object.fromEntries(Object.keys(def.slots).map(k=>[k,[]]))};
 }
 export function createProgram(project){return {id:id('event'),name:'새 이벤트',enabled:true,once:true,trigger:createBlock('when.start',project),actions:[]};}
@@ -100,7 +107,7 @@ export function assertPrograms(programs){
     const def=b&&BLOCKS[b.type];if(!def||!accepts(kind,b.type))fail('알 수 없거나 연결 위치에 맞지 않는 블록입니다.');checkId(b.id);
     if(!b.args||Array.isArray(b.args)||typeof b.args!=='object')fail('블록 속성이 올바르지 않습니다.');
     for(const [key,f] of Object.entries(def.fields)){
-      const value=b.args[key];
+      const value=b.args[key];if(f.optional&&value===undefined)continue;
       if(f.kind==='number'){if(!Number.isFinite(value)||value<f.min||value>f.max||(b.type==='flow.repeat'&&!Number.isInteger(value)))fail(f.label+' 값을 확인하세요.');}
       else if(f.kind==='choice'){if(!f.options.some(([id])=>id===value))fail(f.label+' 선택을 확인하세요.');}
       else if(typeof value!=='string'||value.length>(f.max||320))fail(f.label+' 값을 확인하세요.');
@@ -118,6 +125,7 @@ export function programIssues(project){
     walkBlocks(p,b=>{
       const def=BLOCKS[b.type];if(!def)return;
       for(const [key,f] of Object.entries(def.fields)){
+        if(f.optional&&(b.args[key]===undefined||b.args[key]===''))continue;
         if(!['number','text','choice'].includes(f.kind)&&!exists(f.kind,b.args[key]))add(`${def.label}의 ${f.label} 대상이 없습니다.`);
         if(f.kind==='text'&&!b.args[key].trim())add(`${def.label}의 ${f.label}을 입력하세요.`);
       }
@@ -138,7 +146,7 @@ export function programIssues(project){
 }
 export function blockDescription(block,project){
   const def=BLOCKS[block.type];return def.label+Object.entries(def.fields).map(([key,f])=>{
-    const v=block.args[key];let value=v;
+    const v=block.args[key]??f.value;let value=v;
     if(f.kind==='choice')value=f.options.find(([id])=>id===v)?.[1]||v;
     else if(!['text','number'].includes(f.kind))value=targetOptions(project,f.kind).find(([id])=>id===v)?.[1]||'대상 없음';
     return ` · ${f.label}: ${value}`;

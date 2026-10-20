@@ -9,7 +9,7 @@ async function drag(page,a,b){await page.mouse.move(a.x,a.y);await page.mouse.do
 async function load(page){const {project,sources}=await scanFixture();await page.goto('/');await page.locator('#projectInput').setInputFiles({name:'authoring.esfile',mimeType:'application/zip',buffer:Buffer.from(packStage(project))});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));return {project,sources};}
 
 test('directly drag a continuation scan, resize its handle, undo and round-trip the edited file',async({page})=>{
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));await load(page);await page.locator('[data-tab=gimmicks]').click();await page.locator('#libraryContent [data-select-id="security-scan"]').click();await page.locator('[data-scan-focus="1"]').click();
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));await load(page);await page.locator('[data-section=resources]').click();await page.locator('#managementPanel [data-select-id="security-scan"]').click();await page.locator('[data-scan-focus="1"]').click();
   await drag(page,await at(page,{x:11,z:3}),await at(page,{x:12,z:4}));
   let g=(await snapshot(page)).gimmicks.find(g=>g.id==='security-scan');expect(g.settings.steps[0].position).toEqual({x:4,y:1,z:4});expect(g.position).toEqual({x:3,y:1,z:3});
   const center=await at(page,{x:12,z:4}),edge=await at(page,{x:13.5,z:4}),handle=Math.max(20,edge.x-center.x);await drag(page,{x:center.x+handle,y:center.y},{x:center.x+handle+40,y:center.y});
@@ -20,7 +20,7 @@ test('directly drag a continuation scan, resize its handle, undo and round-trip 
 
 test('random candidate floor preview appears after linking the real NBT folder',async({page})=>{
   const {sources}=await load(page),root=path.resolve('artifacts/authoring-tiles');for(const [ref,bytes] of sources){await mkdir(path.join(root,path.dirname(ref)),{recursive:true});await writeFile(path.join(root,ref),bytes);}
-  await page.locator('#tileFolderInput').setInputFiles(root);await page.locator('[data-tab=gimmicks]').click();await page.locator('#libraryContent [data-select-id="security-scan"]').click();await page.locator('[data-scan-focus="1"]').click();await expect(page.locator('.scan-map-tools')).toContainText(/배치 후보 [1-9]/);await page.screenshot({path:'artifacts/authoring-random-floor.png'});
+  await page.locator('#tileFolderInput').setInputFiles(root);await page.locator('[data-section=resources]').click();await page.locator('#managementPanel [data-select-id="security-scan"]').click();await page.locator('[data-scan-focus="1"]').click();await expect(page.locator('.scan-map-tools')).toContainText(/배치 후보 [1-9]/);await page.screenshot({path:'artifacts/authoring-random-floor.png'});
 });
 
 test('a door shows its exact event references and navigates back from a block target',async({page})=>{

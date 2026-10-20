@@ -62,7 +62,8 @@ export function duplicatePlacement(project,id,position){
   const source=project.placements.find(p=>p.id===id);if(!source)throw new Error('복제할 타일이 없습니다.');
   const p={...structuredClone(source),...position,id:uid('placement'),areaCode:nextAreaCode(project,source.roomId)};
   const error=placementError(project,p);if(error)throw new Error(error);
-  const owned=project.gimmicks.filter(g=>g.placementId===id),ids=new Map([[id,p.id]]);
+  const owned=project.gimmicks.filter(g=>g.placementId===id),resources=(project.resourceRules||[]).filter(r=>r.scope==='tile'&&r.targetId===id),enemies=(project.enemyGroups||[]).filter(r=>r.scope==='tile'&&r.targetId===id),ids=new Map([[id,p.id],['tile:'+id,'tile:'+p.id]]);
+  for(const r of [...resources,...enemies])ids.set(r.id,uid('copy'));for(const r of resources)if(r.objectKey)ids.set(r.objectKey,uid('object'));
   for(const g of owned)ids.set(g.id,uid('gimmick'));
   for(const port of tileOf(project,source).ports)ids.set(id+':'+port.id,p.id+':'+port.id);
   const objectives=project.objectives.filter(o=>ids.has(o.targetId));for(const o of objectives)ids.set(o.id,uid('objective'));
@@ -78,6 +79,6 @@ export function duplicatePlacement(project,id,position){
     walkBlocks(copy,b=>{for(const [key,f] of Object.entries(BLOCKS[b.type].fields))if(!scalarKind(f.kind))b.args[key]=remap(b.args[key]);});return copy;
   });
   const links=project.links.filter(l=>ids.has(l.from)||ids.has(l.to)).map(l=>({...l,id:uid('link'),from:remap(l.from),to:remap(l.to)}));
-  project.placements.push(p);project.gimmicks.push(...gimmicks);project.objectives.push(...objectives.map(o=>({...o,id:remap(o.id),targetId:remap(o.targetId)})));project.programs.push(...programs);project.links.push(...links);
+  project.placements.push(p);project.resourceRules??=[];project.enemyGroups??=[];project.resourceRules.push(...resources.map(r=>({...structuredClone(r),id:remap(r.id),targetId:p.id,objectKey:remap(r.objectKey)})));project.enemyGroups.push(...enemies.map(r=>({...structuredClone(r),id:remap(r.id),targetId:p.id})));project.gimmicks.push(...gimmicks);project.objectives.push(...objectives.map(o=>({...o,id:remap(o.id),targetId:remap(o.targetId)})));project.programs.push(...programs);project.links.push(...links);
   return p;
 }

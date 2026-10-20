@@ -106,9 +106,12 @@ export async function inspectStructure(input,name='tile.nbt'){
     }
   }
   if(!tile.ports.length)throw new Error('타일 설계도에는 외곽의 Erosion Sector 문이 최소 하나 필요합니다.');
+  const slots=[];
+  for(const b of root.blocks){const state=palette[b.state],id=state.Name,props=state.Properties||{};const container=/chest|barrel|shulker_box|hopper|dispenser|dropper|furnace|brewing_stand|toolbox|supply_container|supply_small|supply_medium|supply_large/.test(id)||Array.isArray(b.nbt?.Items);if(!container)continue;if(id.includes('supply_')&&(Number(props.column||0)!==0||Number(props.layer||0)!==0))continue;slots.push({id:b.pos.join(','),kind:'container',position:{x:b.pos[0],y:b.pos[1],z:b.pos[2]},capacity:id.endsWith('supply_small')?1:id.endsWith('supply_medium')?3:id.endsWith('supply_large')?5:id.endsWith('supply_container')?9:id.includes('hopper')?5:/furnace|brewing_stand/.test(id)?3:/dispenser|dropper/.test(id)?9:id.includes('toolbox')?8:27,block:id});}
+  for(const e of root.entities||[]){const n=e.nbt||{};if(!['minecraft:item_frame','minecraft:glow_item_frame'].includes(n.id))continue;const pos=e.blockPos||e.pos||[0,0,0];slots.push({id:'frame:'+slots.length,kind:'object',position:{x:pos[0],y:pos[1],z:pos[2]},facing:n.Facing??2});}
   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
   tile.asset={name,bytes:base64(bytes),sha256:Array.from(hash,b=>b.toString(16).padStart(2,'0')).join(''),
-    blockCount:root.blocks.length,paletteCount:palette.length,entityCount:root.entities?.length||0,markerCount,
+    slots,blockCount:root.blocks.length,paletteCount:palette.length,entityCount:root.entities?.length||0,markerCount,
     namespaces:[...new Set(palette.map(state=>(state.Name||'').split(':')[0]))].filter(Boolean),dataVersion:root.DataVersion||null,
     occupancy:encodeOccupancy(tile.size,(function*(){for(const block of root.blocks)if(!AIR.has(palette[block.state].Name))yield block.pos;})())};
   return tile;
@@ -125,6 +128,7 @@ export async function restoreProject(input){
   return project;
 }
 function mergeTileSource(tile,source){
+    tile.asset.slots=source.asset.slots;
     if(source.asset.sha256!==tile.asset.sha256||['x','y','z'].some(k=>source.size[k]!==tile.size[k]))throw new Error(`${tile.name}: 참조 경로의 NBT가 저장 당시 원본과 다릅니다. 설계도 교체로 명시적으로 갱신하세요.`);
     const remaining=[...source.ports];
     for(const port of tile.ports){

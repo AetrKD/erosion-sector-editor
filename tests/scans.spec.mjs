@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 test('author a multi-step random scan and download the same configuration',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');
   const {project:p}=await scanFixture();await page.locator('#projectInput').setInputFiles({name:'scan.esfile',mimeType:'application/zip',buffer:Buffer.from(packStage(p))});
-  await page.locator('[data-tab=gimmicks]').click();await page.locator('#libraryContent [data-select-id="security-scan"]').click();
+  await page.locator('[data-section=resources]').click();await page.locator('#managementPanel [data-select-id="security-scan"]').click();
   await page.getByLabel('스캔 반경 · 블록',{exact:true}).fill('2');await page.getByLabel('스캔 반경 · 블록',{exact:true}).press('Tab');
   await expect(page.getByLabel('스캔 중심 기준',{exact:true})).toHaveCount(0);await expect(page.getByLabel('X',{exact:true})).toHaveAttribute('step','1');
   await page.getByLabel('스캔 요구 인원',{exact:true}).selectOption('2');await page.getByLabel('스캔 위치 방식',{exact:true}).selectOption('random');

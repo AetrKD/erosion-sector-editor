@@ -1,3 +1,4 @@
+import {magnetic} from './features.mjs';
 import {KINDS,dimensions,inversePoint,placementError,tileOf,worldPoint} from './core.mjs';
 import {isScan,scanPosition} from './scan.mjs';
 import {occupancy} from './occupancy.mjs';
@@ -11,8 +12,8 @@ export function palettePlacement(project,brush,point,roomId,index=null){
   if(brush.kind==='tile'){
     const tile=index?index.tiles.get(brush.id):project.tiles.find(t=>t.id===brush.id);
     if(!tile)return {error:'타일 원본을 찾을 수 없습니다.'};
-    const placement={id:'palette-preview',tileId:tile.id,x,y,z,rotation:brush.rotation||0,roomId:roomId||project.rooms[0]?.id||'',name:''};
-    return {brush,placement,tile,error:placementError(project,placement,null,index)};
+    let placement={id:'palette-preview',tileId:tile.id,x,y,z,rotation:brush.rotation||0,roomId:roomId||project.rooms[0]?.id||'',name:''};
+    placement=magnetic(project,placement);return {brush,placement,tile,snapped:placement.x!==x||placement.z!==z,error:placementError(project,placement,null,index)};
   }
   if(brush.kind!=='gimmick'||!KINDS[brush.id]||brush.id==='terminal')return {error:'배치할 기믹을 확인하세요.'};
   let placement;
