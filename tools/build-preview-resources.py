@@ -21,7 +21,10 @@ root=workspace/'lobby-mod/src/main/resources/assets/erosionsector'
 for p in root.rglob('*'):
  if p.is_file() and p.parts[len(root.parts)] in ['blockstates','models','textures']:resources['assets/erosionsector/'+p.relative_to(root).as_posix()]=p.read_bytes()
 data={'version':1,'sources':['Minecraft 1.21.1','Create 6.0.10','Copycats+ 3.0.9','Create Deco 2.1.3','ES working resources'],'states':{},'models':{},'textures':{},'pages':[]}
-if public:data['sources']=['Erosion Sector 0.6.0']
+if public:
+ import re
+ version=re.search(r'^mod_version=(.+)$',(workspace/'lobby-mod/gradle.properties').read_text(encoding='utf-8'),re.M).group(1).strip()
+ data['sources']=['Erosion Sector '+version]
 images=[]
 for n,raw in resources.items():
  ns,kind,tail=n.split('/',3)[1:]

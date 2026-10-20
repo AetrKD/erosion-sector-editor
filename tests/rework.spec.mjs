@@ -1,3 +1,5 @@
+import {readFile} from 'node:fs/promises';
+import {unzipSync,zipSync,strToU8,strFromU8} from 'fflate';
 import path from 'node:path';
 import {test,expect} from '@playwright/test';
 import {reworkFixture} from '../tools/rework-fixture.mjs';
@@ -35,4 +37,8 @@ test('new event palette stays open and block title folds the body',async({page})
 
 test('local resource pack survives reload and renders native multi-material NBT',async({page})=>{
  await page.locator('[data-action=welcome-new]').click();await page.locator('[data-preview-resources]').setInputFiles(path.resolve('artifacts/block-resources.esresources'));await expect(page.locator('#previewStats')).toContainText('연결됨');await page.reload();await page.locator('[data-action=welcome-new]').click();await page.locator('#previewNbtInput').setInputFiles(path.resolve('tests/resources/copycat-real-multimaterial.nbt'));await expect(page.locator('#previewStats')).toContainText('면 12');await expect(page.locator('#previewStats')).not.toContainText('미지원');await page.screenshot({path:'artifacts/rework-multimaterial.png'});
+});
+
+test('an older connected resource pack cannot replace current ES structure artwork',async({page})=>{
+ const files=unzipSync(await readFile('artifacts/block-resources.esresources')),index=JSON.parse(strFromU8(files['index.json'])),data=JSON.parse(strFromU8(files[index.models]));data.models['erosionsector:block/cargo_crate']={parent:'minecraft:block/cube_all',textures:{all:'minecraft:block/gold_block'}};files[index.models]=strToU8(JSON.stringify(data));await page.locator('[data-action=welcome-new]').click();await page.locator('[data-preview-resources]').setInputFiles({name:'older-resources.esresources',mimeType:'application/zip',buffer:Buffer.from(zipSync(files))});await expect(page.locator('#previewStats')).toContainText('연결됨');const model=await page.evaluate(async()=>{const {loadBlockModels}=await import('/block-models.mjs');return (await loadBlockModels()).model('erosionsector:block/cargo_crate');});expect(model.elements.length).toBeGreaterThan(1);expect(Object.values(model.textures).every(v=>v.startsWith('erosionsector:'))).toBe(true);
 });
