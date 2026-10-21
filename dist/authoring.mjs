@@ -6,7 +6,9 @@ import {occupancy} from './occupancy.mjs';
 
 export const scalarKind=kind=>['number','text','choice'].includes(kind);
 export function referenceTarget(kind,id){
-  if(scalarKind(kind)||!id)return null;
+  if(scalarKind(kind)||!id||kind==='enemyGroup')return null;
+  if(kind==='enemyTable')return {kind:'enemyTable',id};
+  if(kind==='lightTarget')return id.startsWith('tile:')?{kind:'placement',id:id.slice(5)}:{kind:'room',id};
   return {kind:['room','placement','door','objective'].includes(kind)?kind:'gimmick',id};
 }
 export function programReferences(program){

@@ -35,3 +35,5 @@
 .goal-group-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}.goal-children{margin:10px 14px 14px 24px;border-left:1px solid #4b6558;padding-left:14px}
 .goal-leaf{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:14px 10px}.goal-leaf:last-child{border-bottom:0}.goal-leaf>div{flex:1;min-width:0;overflow-wrap:anywhere}.goal-leaf small{display:block;margin-top:4px}.goal-empty{padding:16px 10px;color:var(--muted)}.goal-group.inactive>summary{background:#202b30}
 @media(max-width:700px){.goal-group>summary{flex-wrap:wrap}.goal-group-actions{margin-left:20px}.goal-children{margin-left:12px;padding-left:8px}.goal-leaf{gap:8px}}
+
+.enemy-entries{width:100%;border-collapse:collapse;margin:16px 0}.enemy-entries th{text-align:left;color:var(--muted);padding:8px}.enemy-entries td{padding:6px}.enemy-entries td:nth-child(2){width:85px}.enemy-entries td:nth-child(3){width:50px;text-align:center}.legacy-enemies{margin-top:24px}.legacy-enemies>summary{cursor:pointer;color:var(--muted)}

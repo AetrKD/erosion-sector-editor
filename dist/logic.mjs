@@ -43,6 +43,8 @@ export const BLOCKS=Object.freeze({
   'do.alarm':definition('action','경보 제어',{gimmickId:target('경보 장치','alarm'),action:{...choice('동작','start',[['start','시작'],['stop','정지']]),optional:true}}),
   'do.objective':definition('action','목표 제어',{objectiveId:target('임무 목표','objective'),action:{...choice('동작','complete',[['activate','활성화'],['deactivate','비활성화'],['complete','완료 처리']]),optional:true}}),
   'do.wave':definition('action','적 출현 시작',{gimmickId:target('적 출현 지점','wave')}),
+  'do.spawnTable':definition('action','몹 테이블 생성',{tableId:target('생성 테이블','enemyTable'),area:target('생성 위치','lightTarget'),waves:number('생성 횟수 · 0은 무한',1,0,1000),interval:number('회차 간격 · 초',15,1,3600),minDistance:number('플레이어와 최소 거리 · 블록',4,0,128)}),
+  'do.stopTable':definition('action','몹 테이블 생성 중지',{tableId:target('생성 테이블','enemyTable')}),
   'do.enemies':definition('action','적 생성 제어',{groupId:target('적 생성 그룹','enemyGroup'),action:choice('동작','start',[['start','시작'],['stop','정지']])}),
   'do.music':definition('action','음악 재생',{sound:text('사운드 리소스 ID','minecraft:music.game',160),action:choice('동작','play',[['play','재생'],['stop','정지']]),volume:number('음량',1,0,2)}),
   'do.message':definition('action','안내 문구 표시',{message:text('표시할 문구','전력이 차단되었습니다.',500),seconds:number('표시 시간 · 초',5,.1,60)}),
@@ -54,7 +56,8 @@ export const CATEGORY_LABELS={trigger:'발생',condition:'조건',control:'흐�
 const id=prefix=>prefix+'_'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
 export function accepts(slot,type){const category=BLOCKS[type]?.category;return slot==='statement'?category==='action'||category==='control':slot===category;}
 export function targetOptions(project,kind){
-  if(kind==='lightTarget')return [...project.rooms.map(r=>[r.id,'구역 · '+r.code]),...project.placements.map(p=>['tile:'+p.id,'타일 · '+p.areaCode])];
+  if(kind==='lightTarget')return [...project.rooms.map(r=>[r.id,'구역 · '+r.code]),...project.placements.map(p=>['tile:'+p.id,'타일 · '+(project.rooms.find(r=>r.id===p.roomId)?.code||'?')+' / '+p.areaCode+' · '+(project.tiles.find(t=>t.id===p.tileId)?.name||'')])];
+  if(kind==='enemyTable')return (project.enemyTables||[]).map(t=>[t.id,t.name]);
   if(kind==='enemyGroup')return (project.enemyGroups||[]).map(g=>[g.id,g.name]);
   if(kind==='scan')return project.gimmicks.filter(g=>g.type==='scan'||g.type==='extraction').map(g=>[g.id,`${project.rooms.find(r=>r.id===project.placements.find(p=>p.id===g.placementId)?.roomId)?.code||'?'} / ${project.placements.find(p=>p.id===g.placementId)?.areaCode||'?'} · ${g.name}`]);
   if(kind==='objective')return (project.objectives||[]).map(o=>[o.id,o.name]);
@@ -108,7 +111,7 @@ export function assertPrograms(programs){
     if(!b.args||Array.isArray(b.args)||typeof b.args!=='object')fail('블록 속성이 올바르지 않습니다.');
     for(const [key,f] of Object.entries(def.fields)){
       const value=b.args[key];if(f.optional&&value===undefined)continue;
-      if(f.kind==='number'){if(!Number.isFinite(value)||value<f.min||value>f.max||(b.type==='flow.repeat'&&!Number.isInteger(value)))fail(f.label+' 값을 확인하세요.');}
+      if(f.kind==='number'){if(!Number.isFinite(value)||value<f.min||value>f.max||((b.type==='flow.repeat'||b.type==='do.spawnTable'&&key==='waves')&&!Number.isInteger(value)))fail(f.label+' 값을 확인하세요.');}
       else if(f.kind==='choice'){if(!f.options.some(([id])=>id===value))fail(f.label+' 선택을 확인하세요.');}
       else if(typeof value!=='string'||value.length>(f.max||320))fail(f.label+' 값을 확인하세요.');
     }

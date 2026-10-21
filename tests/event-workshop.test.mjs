@@ -21,5 +21,5 @@ test('slot breadcrumbs explain nested condition and branch locations and counts 
 });
 test('block search spans categories and hides terminal triggers when no terminal target exists',()=>{
   const project=demoProject();project.gimmicks=project.gimmicks.filter(g=>g.type!=='terminal');assert.ok(!paletteTypes(project,'trigger').some(([type])=>type==='when.command'));
-  const matches=paletteTypes(project,'action','목표');assert.ok(matches.some(([type])=>type==='when.progress'));assert.ok(matches.some(([type])=>type==='do.objective'));assert.equal(new Set(['trigger','condition','control','action'].flatMap(c=>paletteTypes(project,c).map(([id])=>id))).size,29);assert.equal(paletteTypes(project,'action','존재하지않는블록').length,0);
+  const matches=paletteTypes(project,'action','목표');assert.ok(matches.some(([type])=>type==='when.progress'));assert.ok(matches.some(([type])=>type==='do.objective'));assert.equal(new Set(['trigger','condition','control','action'].flatMap(c=>paletteTypes(project,c).map(([id])=>id))).size,30);assert.equal(paletteTypes(project,'action','존재하지않는블록').length,0);
 });

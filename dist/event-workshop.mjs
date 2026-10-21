@@ -28,6 +28,6 @@ export function slotPath(program,parentId,slot){
 }
 export function paletteTypes(project,category,query=''){
   const needle=query.trim().toLocaleLowerCase();
-  const allowed=new Set(['when.start','when.area','when.tile','when.progress','when.signal','when.door','when.doorAttempt','when.all','when.any','check.players','check.objective','check.alarm','check.variable','check.all','check.any','check.not','flow.if','flow.repeat','flow.until','flow.wait','do.areaLights','do.door','do.objective','do.alarm','do.enemies','do.signal','do.variable','do.mission','do.music']);
-  return Object.entries(BLOCKS).filter(([type])=>allowed.has(type)).filter(([type,def])=>(needle?(def.label+' '+type).toLocaleLowerCase().includes(needle):def.category===category)&&(type!=='when.command'||project.gimmicks.some(g=>g.type==='terminal')));
+  const allowed=new Set(['when.start','when.area','when.tile','when.progress','when.signal','when.door','when.doorAttempt','when.all','when.any','check.players','check.objective','check.alarm','check.variable','check.all','check.any','check.not','flow.if','flow.repeat','flow.until','flow.wait','do.areaLights','do.door','do.objective','do.alarm','do.enemies','do.spawnTable','do.stopTable','do.signal','do.variable','do.mission','do.music']);
+  return Object.entries(BLOCKS).filter(([type])=>allowed.has(type)&&(type!=='do.enemies'||project.enemyGroups?.length)).filter(([type,def])=>(needle?(def.label+' '+type).toLocaleLowerCase().includes(needle):def.category===category)&&(type!=='when.command'||project.gimmicks.some(g=>g.type==='terminal')));
 }
