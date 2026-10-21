@@ -56,7 +56,7 @@ test('save and restore retain references and reject malicious/out-of-range proje
   const malformed=structuredClone(p);malformed.gimmicks[0].position.x='bad';assert.throws(()=>readProject(malformed));
 });
 test('stage export is an explicit design draft and retains gimmick event graph',()=>{
-  const out=exportStage(demoProject());assert.equal(out.format,'erosionsector-stage');assert.equal(out.runtimeReady,false);assert.equal(out.status,'draft');
+  const project=demoProject();project.links=[{id:'legacy-1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'legacy-2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}];const out=exportStage(project);assert.equal(out.format,'erosionsector-stage');assert.equal(out.runtimeReady,false);assert.equal(out.status,'draft');
   assert.equal(out.connections.length,6);assert.equal(out.links.length,2);assert.deepEqual(out.placements[0].blockPosition,{x:-32,y:0,z:0});
 });
 test('dangling goals and required unconnected doors produce actionable errors',()=>{

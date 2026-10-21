@@ -8,3 +8,22 @@
 .workspace:not([data-section=tiles]) [data-action=preview]{display:none}.section-nav .help-button{padding:0;width:24px;min-width:24px}.inspect-kicker,.tiny-label{display:none}
 
 .editor.split-preview #tilePreviewPanel{top:49px}.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:50%}.preview-toolbar>div{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.preview-toolbar small{flex-basis:100%}.preview-toolbar strong{max-width:160px}@media(max-width:800px){.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:0}.editor.split-preview #tilePreviewPanel{top:auto}}
+
+/* Keep the workspace available for the task being edited. */
+.workspace[data-workspace=manage]{grid-template-columns:minmax(0,1fr)}
+.workspace[data-workspace=manage] #libraryPanel{display:none}
+.workspace.preview-open{grid-template-columns:220px minmax(0,1fr)}
+.workspace.preview-open>.inspector{display:none}
+.extraction-locations{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:20px 0}
+.management-settings{flex-wrap:wrap}.stage-identifier{overflow-wrap:anywhere;color:var(--muted);margin:16px 0}
+@media(max-width:800px){.workspace.preview-open{grid-template-columns:minmax(0,1fr)}.workspace.preview-open>.library{display:none}}
+
+.preview-width-control{display:none;align-items:center;gap:8px;padding:0 12px}.preview-width-control input{width:80px!important}
+.split-preview .preview-width-control{display:flex}
+.editor.split-preview #tilePreviewPanel{width:var(--preview-width,50%)}
+.editor.split-preview #canvasWrap,.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:var(--preview-width,50%)}
+@media(max-width:800px){.split-preview .preview-width-control{display:none}.editor.split-preview #tilePreviewPanel{width:100%}.editor.split-preview #canvasWrap,.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:0}}
+
+.workspace.preview-open [data-action=toggle-inspector]{display:inline-flex}
+.workspace.preview-open>.inspector.visible{display:flex;position:absolute;right:0;top:196px;bottom:0;width:280px;z-index:6;box-shadow:-10px 0 24px #0006}
+.workspace.preview-open .inspector .panel-close{display:inline-flex}

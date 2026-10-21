@@ -211,7 +211,7 @@ export function demoProject() {
   ];
   return checkFeatures(normalizeAreaCodes({format:'erosionsector-project',version:1,id:'a1-silent-observatory',name:'A1 · 잠든 관측소',
     author:'Erosion Sector',difficulty:'보통',description:'관측 시설의 전력을 복구하고 진입실로 돌아오세요. 복층 홀의 내부 계단으로 상층 제어실에 접근합니다.',chapter:{id:'a',name:'관측 시설',description:''},missionCode:'A1',minPlayers:1,maxPlayers:4,
-    tiles,placements,gimmicks,missionMode:'extract',objectives:[],programs:[],links:[{id:'l1',from:'g2',to:'g3',event:'상호작용',action:'활성화'},{id:'l2',from:'g5',to:'g6',event:'목표 완료',action:'활성화'}],
+    tiles,placements,gimmicks,missionMode:'objectives',objectives:[{id:'restore-power',name:'전력 복구 스캔 완료',type:'scan',targetId:'g5',command:'',amount:1,required:true,enabled:true,groupId:'main'}],programs:[],links:[],
     zones:[{id:'z1',name:'진입 시설',color:'#78968d'},{id:'z2',name:'관측 연구동',color:'#748eae'}],
     rooms:[{id:'r1',code:'101',name:'진입실',zoneId:'z1',color:'#7ba392'},{id:'r2',code:'102',name:'진입 복도',zoneId:'z1',color:'#6c8992'},
       {id:'r3',code:'103',name:'관측 홀',zoneId:'z1',color:'#809f9b'},{id:'r4',code:'201',name:'보안 통로',zoneId:'z2',color:'#b59b72'},
@@ -219,7 +219,7 @@ export function demoProject() {
       {id:'r7',code:'204',name:'전력 제어실',zoneId:'z2',color:'#8c9fba'}]}));
 }
 export function emptyProject() {
-  const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.author='';p.difficulty='';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.tiles=[];p.placements=[];p.gimmicks=[];p.links=[];
+  const p=demoProject();p.id=uid('stage');p.name='새 스테이지';p.author='';p.difficulty='';p.description='';p.chapter={id:'',name:'',description:''};p.missionCode='';p.tiles=[];p.placements=[];p.gimmicks=[];p.links=[];p.objectives=[];
   p.rooms=[{id:'r1',code:'101',name:'첫 번째 구역',zoneId:'z1',color:'#7ba392'}];p.zones=[p.zones[0]];p.missionMode='objectives';return p;
 }
 export function readProject(input) {
