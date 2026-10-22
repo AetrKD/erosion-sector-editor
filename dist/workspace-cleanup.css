@@ -18,11 +18,9 @@
 .management-settings{flex-wrap:wrap}.stage-identifier{overflow-wrap:anywhere;color:var(--muted);margin:16px 0}
 @media(max-width:800px){.workspace.preview-open{grid-template-columns:minmax(0,1fr)}.workspace.preview-open>.library{display:none}}
 
-.preview-width-control{display:none;align-items:center;gap:8px;padding:0 12px}.preview-width-control input{width:80px!important}
-.split-preview .preview-width-control{display:flex}
 .editor.split-preview #tilePreviewPanel{width:var(--preview-width,50%)}
 .editor.split-preview #canvasWrap,.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:var(--preview-width,50%)}
-@media(max-width:800px){.split-preview .preview-width-control{display:none}.editor.split-preview #tilePreviewPanel{width:100%}.editor.split-preview #canvasWrap,.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:0}}
+@media(max-width:800px){.editor.split-preview #tilePreviewPanel{width:100%}.editor.split-preview #canvasWrap,.editor.split-preview>.editor-toolbar,.editor.split-preview>.floor-bar{margin-right:0}}
 
 .workspace.preview-open [data-action=toggle-inspector]{display:inline-flex}
 .workspace.preview-open>.inspector.visible{display:flex;position:absolute;right:0;top:196px;bottom:0;width:280px;z-index:6;box-shadow:-10px 0 24px #0006}
@@ -37,3 +35,9 @@
 @media(max-width:700px){.goal-group>summary{flex-wrap:wrap}.goal-group-actions{margin-left:20px}.goal-children{margin-left:12px;padding-left:8px}.goal-leaf{gap:8px}}
 
 .enemy-entries{width:100%;border-collapse:collapse;margin:16px 0}.enemy-entries th{text-align:left;color:var(--muted);padding:8px}.enemy-entries td{padding:6px}.enemy-entries td:nth-child(2){width:85px}.enemy-entries td:nth-child(3){width:50px;text-align:center}.legacy-enemies{margin-top:24px}.legacy-enemies>summary{cursor:pointer;color:var(--muted)}
+
+#previewDivider{display:none}.editor.split-preview #previewDivider{display:block;position:absolute;top:49px;bottom:24px;right:calc(var(--preview-width,50%) - 5px);width:10px;z-index:4;cursor:col-resize;touch-action:none;outline:none}
+#previewDivider::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;background:var(--line);transition:background .12s}
+#previewDivider:hover::after,#previewDivider:focus-visible::after,.resizing-preview #previewDivider::after{background:var(--green)}
+.resizing-preview,.resizing-preview *{cursor:col-resize!important;user-select:none!important}
+@media(max-width:800px){.editor.split-preview #previewDivider{display:none}}

@@ -402,4 +402,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('button[data-sect
 
 installHelp();
 
-$('previewWidth').addEventListener('input',e=>{document.querySelector('.editor').style.setProperty('--preview-width',e.target.value+'%');requestAnimationFrame(()=>requestAnimationFrame(()=>map.fit()));});
+const previewDivider=$('previewDivider'),previewEditor=document.querySelector('.editor');let resizingPreview=null;
+function resizePreview(value){value=Math.max(35,Math.min(65,value));previewEditor.style.setProperty('--preview-width',value+'%');previewDivider.setAttribute('aria-valuenow',String(Math.round(value)));}
+function finishPreviewResize(e){if(resizingPreview!==e.pointerId)return;resizingPreview=null;previewEditor.classList.remove('resizing-preview');if(previewDivider.hasPointerCapture(e.pointerId))previewDivider.releasePointerCapture(e.pointerId);requestAnimationFrame(()=>requestAnimationFrame(()=>map.fit()));}
+previewDivider.addEventListener('pointerdown',e=>{if(e.button!==0||innerWidth<=800)return;e.preventDefault();resizingPreview=e.pointerId;previewDivider.setPointerCapture(e.pointerId);previewEditor.classList.add('resizing-preview');previewDivider.focus();});
+previewDivider.addEventListener('pointermove',e=>{if(resizingPreview!==e.pointerId)return;const box=previewEditor.getBoundingClientRect();resizePreview((box.right-e.clientX)/box.width*100);});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])previewDivider.addEventListener(event,finishPreviewResize);
+previewDivider.addEventListener('dblclick',()=>{resizePreview(50);requestAnimationFrame(()=>requestAnimationFrame(()=>map.fit()));});
+previewDivider.addEventListener('keydown',e=>{const value=Number(previewDivider.getAttribute('aria-valuenow'));let next;if(e.key==='ArrowLeft')next=value+2;else if(e.key==='ArrowRight')next=value-2;else if(e.key==='Home')next=35;else if(e.key==='End')next=65;else return;e.preventDefault();resizePreview(next);requestAnimationFrame(()=>requestAnimationFrame(()=>map.fit()));});
