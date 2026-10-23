@@ -20,7 +20,7 @@ export function missionIssues(p){
   if(p.missionMode==='objectives'&&!(p.objectives||[]).some(o=>o.required))add('목표 달성 임무에는 필수 목표를 하나 이상 지정하세요.');
   for(const o of p.objectives||[]){if(!['manual','survive'].includes(o.type)&&!objectiveTargets(p,o.type).some(([id])=>id===o.targetId))add(`${o.name}: 목표 대상이 없습니다.`);if(o.type==='command'&&(!o.command.trim()||['HELP','STATUS'].includes(o.command.trim().toUpperCase())))add(`${o.name}: HELP·STATUS 이외의 목표 명령어를 지정하세요.`);}
   for(const g of p.gimmicks){const s=g.settings;
-    if(g.type==='alarm'){
+    if(g.type==='alarm'&&!s.managed){
       if(!['distance','tiles','none'].includes(s.spawnRule||'distance'))add(`${g.name}: 알람의 생성 규칙을 확인하세요.`,{kind:'gimmick',id:g.id});
       if(s.spawnRule==='tiles'&&(!Array.isArray(s.spawnTiles)||!s.spawnTiles.length||s.spawnTiles.some(id=>!p.placements.some(q=>q.id===id))))add(`${g.name}: 몹을 생성할 배치 타일을 지정하세요.`,{kind:'gimmick',id:g.id});
       if(s.wakeRoomId&&!p.rooms.some(r=>r.id===s.wakeRoomId))add(`${g.name}: 깨울 구역이 없습니다.`,{kind:'gimmick',id:g.id});

@@ -37,7 +37,8 @@ export function scanFields(g,p,{field:f,select:s}){
     +f(label+' 반경 · 블록',path+'radius',step.radius??a.radius??2.5,'number','min="0.5" max="16" step="0.5"')
     +f(label+' 시간 · 초',path+'duration',step.duration??a.duration??5,'number','min="0.1" max="3600" step="0.1"')
     +s(label+' 요구 인원',path+'requiredPlayers',String(step.requiredPlayers??a.requiredPlayers??(a.requireAll===false?1:'all')),people);
-  let html='<div class="section-title">원형 스캔 · 1단계</div>'+fields(a,'settings.','스캔');
+  const leave=s('인원 부족 시','settings.leavePolicy',a.leavePolicy||'pause',[['pause','일시정지'],['resetStep','현재 단계 초기화'],['resetAll','전체 초기화']]);
+  let html=leave+'<div class="section-title">원형 스캔 · 1단계</div>'+fields(a,'settings.','스캔');
   if(g.type==='scan')html+=s('시작 시 자동 활성화','settings.enabled',String(a.enabled??true),[['true','예'],['false','이벤트로 시작']]);
   if(g.type==='extraction')html+=s('필수 목표 완료 시 자동 활성화','settings.unlockOnObjectives',String(a.unlockOnObjectives??true),[['true','예'],['false','이벤트로 활성화']]);
   html+='<div class="note subtle">스캔 중심은 입력한 정수 좌표 그대로입니다. X=8, Z=8이면 중심은 (8, 8)입니다. 좌표에 0.5를 더하지 않습니다. 모드 0.5.41 이상을 사용하세요. 인원이 부족하면 진행도를 유지한 채 멈춥니다. 바닥 높이 ±1블록까지 집계합니다. 랜덤은 위의 좌표를 기준으로 연결된 평평한 바닥에서 원 전체가 들어가는 곳을 선택합니다. 벽·낭떠러지·타일 밖을 피하며 유효한 위치가 없으면 실행 전에 오류를 안내합니다.</div>';

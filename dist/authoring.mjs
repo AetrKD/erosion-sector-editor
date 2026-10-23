@@ -73,6 +73,7 @@ export function duplicatePlacement(project,id,position){
   const gimmicks=owned.map(g=>{const copy=structuredClone(g);copy.id=remap(g.id);copy.placementId=p.id;
     for(const key of ['containerId','wakeRoomId'])if(copy.settings[key])copy.settings[key]=remap(copy.settings[key]);
     if(copy.settings.spawnTiles)copy.settings.spawnTiles=copy.settings.spawnTiles.map(remap);
+    if(copy.settings.speakerTiles)copy.settings.speakerTiles=copy.settings.speakerTiles.map(remap);
     for(const step of copy.settings.steps||[])if(step.placementId)step.placementId=remap(step.placementId);
     return copy;
   });

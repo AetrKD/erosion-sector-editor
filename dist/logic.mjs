@@ -39,6 +39,7 @@ export const BLOCKS=Object.freeze({
   'do.tileLights':definition('action','타일 조명 제어',{placementId:target('조명 타일','placement'),mode:choice('조명 동작','off',[['on','켜기'],['off','끄기'],['blink','깜빡이기']]),interval:number('깜빡임 간격 · 초',.5,.05,60)}),
   'do.door':definition('action','문 제어',{doorId:target('문 · 이쪽 면','door'),action:choice('문 동작','unlock',[['open','열기'],['close','닫기'],['unlock','이쪽 면 잠금 해제'],['lock','이쪽 면 잠그기']])}),
   'do.gimmick':definition('action','기믹 제어',{gimmickId:target('대상 기믹','gimmick'),action:choice('기믹 동작','activate',[['activate','활성화'],['deactivate','비활성화'],['complete','목표 완료 처리']])}),
+  'do.runScan':definition('action','스캔 진행 · 완료까지 대기',{gimmickId:target('대상 스캔','scan')}),
   'do.scan':definition('action','스캔 제어',{gimmickId:target('대상 스캔','scan'),action:choice('스캔 동작','start',[['start','시작'],['pause','일시정지'],['resume','다시 진행'],['reset','초기화 후 시작'],['stop','종료']])}),
   'do.alarm':definition('action','경보 제어',{gimmickId:target('경보 장치','alarm'),action:{...choice('동작','start',[['start','시작'],['stop','정지']]),optional:true}}),
   'do.objective':definition('action','목표 제어',{objectiveId:target('임무 목표','objective'),action:{...choice('동작','complete',[['activate','활성화'],['deactivate','비활성화'],['complete','완료 처리']]),optional:true}}),

@@ -7,7 +7,7 @@ import {EVENT_TEMPLATES,createEventTemplate,copyEvent,eventCount,slotPath,palett
 test('templates create editable native blocks, default to existing targets and never mutate the source',()=>{
   const project=demoProject(),before=structuredClone(project),programs=EVENT_TEMPLATES.map(t=>createEventTemplate(t.id,project));assertPrograms(programs);
   assert.equal(programs[0].actions[0].args.roomId,programs[0].trigger.args.roomId);assert.equal(programs[0].actions[1].args.seconds,3);
-  assert.equal(programs[1].trigger.type,'when.doorAttempt');assert.equal(programs[1].actions[0].type,'do.scan');assert.equal(programs[1].actions[0].args.action,'start');
+  assert.equal(programs[1].trigger.type,'when.doorAttempt');assert.deepEqual(programs[1].actions.map(b=>b.type),['do.alarm','do.runScan','do.alarm','do.door']);assert.equal(programs[1].actions[2].args.action,'stop');assert.equal(programs[1].actions[0].args.gimmickId,programs[1].actions[2].args.gimmickId);
   assert.equal(programs[2].trigger.args.state,'complete');assert.equal(programs[2].actions[0].args.action,'unlock');assert.equal(programs[3].trigger.type,'when.collect');assert.deepEqual(project,before);
   const empty=createEventTemplate('scan-unlock',emptyProject());assert.equal(empty.trigger.args.gimmickId,'');assert.equal(empty.actions[0].args.doorId,'');assert.throws(()=>createEventTemplate('missing',project));
 });
@@ -21,5 +21,5 @@ test('slot breadcrumbs explain nested condition and branch locations and counts 
 });
 test('block search spans categories and hides terminal triggers when no terminal target exists',()=>{
   const project=demoProject();project.gimmicks=project.gimmicks.filter(g=>g.type!=='terminal');assert.ok(!paletteTypes(project,'trigger').some(([type])=>type==='when.command'));
-  const matches=paletteTypes(project,'action','목표');assert.ok(matches.some(([type])=>type==='when.progress'));assert.ok(matches.some(([type])=>type==='do.objective'));assert.equal(new Set(['trigger','condition','control','action'].flatMap(c=>paletteTypes(project,c).map(([id])=>id))).size,30);assert.equal(paletteTypes(project,'action','존재하지않는블록').length,0);
+  const matches=paletteTypes(project,'action','목표');assert.ok(matches.some(([type])=>type==='when.progress'));assert.ok(matches.some(([type])=>type==='do.objective'));assert.equal(new Set(['trigger','condition','control','action'].flatMap(c=>paletteTypes(project,c).map(([id])=>id))).size,31);assert.equal(paletteTypes(project,'action','존재하지않는블록').length,0);
 });
