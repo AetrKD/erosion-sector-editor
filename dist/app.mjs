@@ -1,7 +1,7 @@
 import {installHelp} from './workspace-help.mjs';
 import {createManagement} from './management.mjs';
 import {checks,setRole,magnetic,defaults} from './features.mjs';
-import {CELL,FACES,KINDS,uid,clone,tileOf,dimensions,bounds,placementError,portError,connections,validate,demoProject,emptyProject,worldPoint,validateProjectDraft} from './core.mjs';
+import {CELL,FACES,KINDS,uid,clone,cloneDraft,tileOf,dimensions,bounds,placementError,portError,connections,validate,demoProject,emptyProject,worldPoint,validateProjectDraft} from './core.mjs';
 import {inspectStructure,restoreProject,loadTileFolder} from './nbt.mjs';
 import {packStage,unpackStage} from './stage-file.mjs';
 import {createMap} from './map.mjs';
@@ -66,7 +66,7 @@ async function writeAutoSave(){
 }
 function scheduleSave(){clearTimeout(saveTimer);$('saveStatus').textContent='브라우저에 임시 저장 중…';$('saveStatus').className='save-status';saveTimer=setTimeout(writeAutoSave,350);}
 function commit(change,message){
-  const next=clone(project);
+  const next=cloneDraft(project);
   let checked;try{change(next);checked=validateProjectDraft(next);}catch(error){toast(error.message,true);return false;}
   // Keep the immutable previous revision; only the owned draft above needs a deep copy.
   undo.push(project);if(undo.length>25)undo.shift();redo=[];project=checked;renderAll();scheduleSave();if(message)toast(message);return true;

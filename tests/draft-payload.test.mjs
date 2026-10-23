@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {cloneDraft,demoProject} from '../dist/core.mjs';
+test('draft keeps immutable payloads but independently owns editable metadata',()=>{const p=demoProject();p.tiles[0].asset={bytes:'AAAA',occupancy:{bits:'AQ==',count:1},slots:[{x:2}]};const q=cloneDraft(p);assert.deepEqual(q,structuredClone(p));q.tiles[0].asset.slots[0].x=9;q.tiles[0].asset.occupancy.count=2;assert.equal(p.tiles[0].asset.slots[0].x,2);assert.equal(p.tiles[0].asset.occupancy.count,1);});

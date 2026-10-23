@@ -25,6 +25,14 @@ export const KINDS = {
 };
 export const uid = prefix => prefix + '_' + (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
 export const clone = value => structuredClone(value);
+export function cloneDraft(project){
+  const payloads=new Map();
+  const tiles=project.tiles.map(t=>{if(!t.asset)return t;const {bytes,occupancy,...metadata}=t.asset;payloads.set(t.id,{bytes,occupancy});return {...t,asset:{...metadata,...(occupancy?{occupancy:{...occupancy,bits:undefined}}:{})}};});
+  const next=structuredClone({...project,tiles});
+  for(const t of next.tiles){const data=payloads.get(t.id);if(!data)continue;if(data.bytes!==undefined)t.asset.bytes=data.bytes;if(data.occupancy)t.asset.occupancy={...data.occupancy};}
+  return next;
+}
+
 // Always relative to tile/: the set directory is part of the identity.
 export function tileReference(value){
   return typeof value==='string'&&value.length<=512&&value.split('/').length>=2&&/\.nbt$/i.test(value)&&

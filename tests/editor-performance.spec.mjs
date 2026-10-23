@@ -24,5 +24,5 @@ test('undo and redo keep exact revisions and automatic recovery saves the final 
   await load(page);const before=await snapshot(page);
   for(const name of ['편집 1','편집 2']){await page.locator('#projectName').click();await page.getByLabel('스테이지 이름',{exact:true}).fill(name);await page.locator('#dialog').getByRole('button',{name:'저장',exact:true}).click();}
   const after=await snapshot(page);await page.locator('[data-action=undo]').click();expect((await snapshot(page)).name).toBe('편집 1');await page.locator('[data-action=undo]').click();expect(await snapshot(page)).toEqual(before);await page.locator('[data-action=redo]').click();await page.locator('[data-action=redo]').click();expect(await snapshot(page)).toEqual(after);
-  await expect(page.locator('#saveStatus')).toHaveText('자동 저장됨');await page.reload();await page.locator('[data-action=welcome-resume]').click();expect(await snapshot(page)).toEqual(after);
+  await expect(page.locator('#saveStatus')).toHaveText('브라우저에 임시 저장됨');await page.reload();await page.locator('[data-action=welcome-resume]').click();expect(await snapshot(page)).toEqual(after);
 });

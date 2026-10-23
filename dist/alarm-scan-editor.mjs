@@ -1,8 +1,29 @@
-import {uid} from './core.mjs';
+import {uid,tileOf,dimensions} from './core.mjs';
+import {relatedPrograms,referenceTarget} from './authoring.mjs';
+import {BLOCKS,walkBlocks} from './logic.mjs';
 import {placementLabel} from './hierarchy.mjs';
 export function createAlarmScans({getProject,commit,modal,field,selectField,esc}){
  const tiles=p=>p.placements.map(q=>[q.id,placementLabel(p,q)]);
- const checks=(p,name,selected)=>`<fieldset><legend>${name==='speakerTiles'?'스피커 반응 타일':'적 생성 타일'}</legend>${tiles(p).map(([id,label])=>`<label><input type="checkbox" name="${name}" value="${esc(id)}" ${selected?.includes(id)?'checked':''}>${esc(label)}</label>`).join('')}</fieldset>`;
+ const checks=(p,name,selected=[])=>{
+  const boxes=p.placements.map(q=>{const size=dimensions(tileOf(p,q),q.rotation);return {q,x:q.x*16,z:q.z*16,w:size.x,h:size.z};});
+  const x=Math.min(...boxes.map(b=>b.x)),z=Math.min(...boxes.map(b=>b.z)),w=Math.max(...boxes.map(b=>b.x+b.w))-x,h=Math.max(...boxes.map(b=>b.z+b.h))-z;
+  return `<fieldset data-tile-picker="${name}"><legend>${name==='speakerTiles'?'스피커 반응 타일':'적 생성 타일'} · <output>${selected.length}</output>개 선택</legend><input type="search" data-tile-search aria-label="${name} 타일 검색" placeholder="타일 검색"><select data-room-filter aria-label="${name} 구역"><option value="">모든 구역</option>${p.rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select><select data-floor-filter aria-label="${name} 층"><option value="">모든 층</option>${[...new Set(p.placements.map(q=>q.y))].sort((a,b)=>a-b).map(y=>`<option value="${y}">높이 ${y*8}</option>`).join('')}</select><svg role="group" aria-label="${name} 지도 선택" viewBox="${x-1} ${z-1} ${w+2} ${h+2}" style="width:100%;height:180px;background:#101820">${boxes.map(({q,x,z,w,h})=>`<rect tabindex="0" role="checkbox" aria-label="${esc(placementLabel(p,q))}" aria-checked="${selected.includes(q.id)}" data-map-tile="${esc(q.id)}" x="${x}" y="${z}" width="${w}" height="${h}" fill="${selected.includes(q.id)?'#9be2bd':'#34474d'}" stroke="#101820"><title>${esc(placementLabel(p,q))}</title></rect>`).join('')}</svg><div style="max-height:180px;overflow:auto">${tiles(p).map(([id,label])=>`<label data-tile-row="${esc(id)}"><input type="checkbox" name="${name}" value="${esc(id)}" ${selected.includes(id)?'checked':''}>${esc(label)}</label>`).join('')}</div></fieldset>`;
+ };
+ function bindPickers(p){const placements=new Map(p.placements.map(q=>[q.id,q]));for(const box of document.querySelectorAll('[data-tile-picker]')){
+  const rects=new Map([...box.querySelectorAll('[data-map-tile]')].map(r=>[r.dataset.mapTile,r]));
+  const entries=[...box.querySelectorAll('input[type=checkbox]')].map(input=>({input,q:placements.get(input.value),rect:rects.get(input.value),row:input.closest('label')}));const inputs=new Map(entries.map(e=>[e.input.value,e.input]));
+  const sync=()=>{let count=0;const room=box.querySelector('[data-room-filter]').value,floor=box.querySelector('[data-floor-filter]').value,search=box.querySelector('[data-tile-search]').value.toLowerCase();for(const {input,q,rect,row}of entries){const visible=(!room||q.roomId===room)&&(floor===''||String(q.y)===floor)&&placementLabel(p,q).toLowerCase().includes(search);row.style.display=visible?'':'none';rect.style.display=visible?'':'none';rect.setAttribute('aria-checked',String(input.checked));rect.setAttribute('fill',input.checked?'#9be2bd':'#34474d');if(input.checked)count++;}box.querySelector('output').textContent=count;};
+  box.addEventListener('input',sync);box.addEventListener('change',sync);
+  const toggle=e=>{const rect=e.target.closest('[data-map-tile]');if(!rect)return;const input=inputs.get(rect.dataset.mapTile);input.checked=!input.checked;sync();};
+  box.addEventListener('click',toggle);box.addEventListener('keydown',e=>{if(e.target.matches('[data-map-tile]')&&['Enter',' '].includes(e.key)){e.preventDefault();toggle(e);}});sync();
+ }}
+ function remove(id){const p=getProject(),g=p.gimmicks.find(g=>g.id===id);if(!g)return;const programs=relatedPrograms(p,{kind:'gimmick',id}),goals=(p.objectives||[]).filter(o=>o.targetId===id),links=(p.links||[]).filter(l=>l.from===id||l.to===id);const used=programs.length+goals.length+links.length;const replacements=p.gimmicks.filter(q=>q.id!==id&&q.type===g.type);
+  modal('삭제 확인',`<p>${esc(g.name)}</p>${used?`<p>연결된 항목 ${used}개</p><ul>${programs.map(x=>`<li>이벤트 · ${esc(x.program.name||x.program.id)}</li>`).join('')}${goals.map(o=>`<li>목표 · ${esc(o.name)}</li>`).join('')}${links.length?`<li>구형 연결 ${links.length}개</li>`:''}</ul>`+selectField('대체 대상','replacement','',[['','대상을 선택하세요'],...replacements.map(q=>[q.id,q.name])]):'<p>연결된 이벤트와 목표 없음</p>'}`,data=>{const replacement=data.get('replacement');if(used&&!replacement)throw Error('연결을 유지할 대체 대상을 선택하세요. 대상이 없으면 사용처의 연결을 먼저 수정하세요.');return commit(next=>{
+   if(used){for(const program of next.programs)walkBlocks(program,b=>{for(const [key,f]of Object.entries(BLOCKS[b.type].fields)){const ref=referenceTarget(f.kind,b.args[key]);if(ref?.kind==='gimmick'&&ref.id===id)b.args[key]=replacement;}});for(const o of next.objectives||[])if(o.targetId===id)o.targetId=replacement;for(const l of next.links||[]){if(l.from===id)l.from=replacement;if(l.to===id)l.to=replacement;}}
+   next.gimmicks=next.gimmicks.filter(q=>q.id!==id);
+  });},'삭제');
+ }
+
  function edit(section,id){const p=getProject(),type=section==='alarms'?'alarm':'scan',old=p.gimmicks.find(g=>g.id===id),g=old||{id:uid(type),type,name:type==='alarm'?'새 알람':'새 스캔',placementId:p.placements[0]?.id,position:{x:1,y:1,z:1},settings:{}},s=g.settings;
  if(!p.placements.length)throw Error('타일을 먼저 배치하세요.');
  let body=field('이름','name',g.name,'text','required maxlength="160"')+selectField('기준 타일','placementId',g.placementId,tiles(p));
@@ -13,8 +34,14 @@ export function createAlarmScans({getProject,commit,modal,field,selectField,esc}
  else{next.position=Object.fromEntries(['x','y','z'].map(k=>[k,Number(data.get('position.'+k))]));for(const k of ['radius','duration'])next.settings[k]=Number(data.get(k));for(const k of ['requiredPlayers','scanKind','leavePolicy'])next.settings[k]=data.get(k);next.settings.steps??=[];}
  const index=project.gimmicks.findIndex(q=>q.id===next.id);if(index<0)project.gimmicks.push(next);else project.gimmicks[index]=next;
  }));
+ bindPickers(p);
+ if(type==='scan'){
+  const form=document.querySelector('#dialogForm'),tileSelect=form.elements.namedItem('placementId');
+  const plan=document.createElement('div');plan.innerHTML='<svg data-scan-plan role="img" aria-label="스캔 위치 선택" style="width:100%;height:180px;background:#101820"></svg>';form.querySelector('#dialogBody').append(plan);const svg=plan.querySelector('svg');
+  const controller=new AbortController();form.closest('dialog').addEventListener('close',()=>controller.abort(),{once:true});const update=()=>{if(!plan.isConnected)return;const q=p.placements.find(q=>q.id===tileSelect.value),t=tileOf(p,q);for(const k of ['x','y','z']){const input=form.elements.namedItem('position.'+k);input.max=t.size[k]-1;input.setAttribute('aria-description',`타일 좌표 0~${t.size[k]-1}`);}svg.setAttribute('viewBox',`-1 -1 ${t.size.x+2} ${t.size.z+2}`);svg.innerHTML=`<rect x="0" y="0" width="${t.size.x}" height="${t.size.z}" fill="#34474d"/><circle cx="${Number(form.elements.namedItem('position.x').value)}" cy="${Number(form.elements.namedItem('position.z').value)}" r="0.6" fill="#9be2bd"/>`;};tileSelect.addEventListener('change',update);plan.parentElement.addEventListener('input',update,{signal:controller.signal});svg.addEventListener('click',e=>{const matrix=svg.getScreenCTM();if(!matrix)return;const point=new DOMPoint(e.clientX,e.clientY).matrixTransform(matrix.inverse());for(const [k,v]of [['x',point.x],['z',point.y]]){const input=form.elements.namedItem('position.'+k);input.value=Math.max(0,Math.min(Number(input.max),Math.round(v)));}update();});update();
+ }
  }
  function render(section){const p=getProject(),alarm=section==='alarms',items=p.gimmicks.filter(g=>alarm?g.type==='alarm':['scan','extraction'].includes(g.type));return `<div class="management-heading"><h2>${alarm?'알람':'스캔'}</h2><button class="button primary" data-alarm-scan="new" data-section-kind="${section}">＋ 추가</button></div><div class="management-items">${items.map(g=>`<article><div><strong>${esc(g.name)}</strong><small>${esc(p.placements.find(q=>q.id===g.placementId)?placementLabel(p,p.placements.find(q=>q.id===g.placementId)):'타일 없음')}${alarm?' · 스피커 '+(g.settings.speakerTiles?.length||0)+'타일':''}</small></div><button class="button" data-alarm-scan="edit" data-section-kind="${section}" data-id="${esc(g.id)}">편집</button><button class="button" data-select-kind="gimmick" data-select-id="${esc(g.id)}">지도·단계 설정</button><button class="subtle-button" data-alarm-scan="delete" data-id="${esc(g.id)}">삭제</button></article>`).join('')||'<p class="empty-state">등록된 항목 없음</p>'}</div>`;}
- document.addEventListener('click',e=>{const b=e.target.closest('[data-alarm-scan]');if(!b)return;if(b.dataset.alarmScan==='delete')return commit(p=>p.gimmicks=p.gimmicks.filter(g=>g.id!==b.dataset.id));edit(b.dataset.sectionKind,b.dataset.id);});
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-alarm-scan]');if(!b)return;if(b.dataset.alarmScan==='delete')return remove(b.dataset.id);edit(b.dataset.sectionKind,b.dataset.id);});
  return {render,edit};
 }
