@@ -25,7 +25,7 @@ if public:
  import re
  version=re.search(r'^mod_version=(.+)$',(workspace/'lobby-mod/gradle.properties').read_text(encoding='utf-8'),re.M).group(1).strip()
  data['sources']=['Erosion Sector '+version]
-data['retiredStates']=['erosionsector:facility_light','erosionsector:mission_selector']+['erosionsector:facility_light_'+c+suffix for c in ['white','red','blue','green'] for suffix in ['', '_dim']]
+data['retiredStates']=['erosionsector:facility_light']+['erosionsector:facility_light_'+c+suffix for c in ['white','red','blue','green'] for suffix in ['', '_dim']]
 images=[]
 for n,raw in resources.items():
  ns,kind,tail=n.split('/',3)[1:]

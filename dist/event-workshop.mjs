@@ -5,7 +5,7 @@ export const EVENT_TEMPLATES=[
   {id:'area-alarm',name:'구역 진입 · 소등과 경보',description:'구역 진입 → 조명 끄기 → 3초 대기 → 알람'},
   {id:'door-scan',name:'보안 문 · 알람과 스캔',description:'문 열기 시도 → 알람 시작 → 스캔 완료 대기 → 알람 정지 → 잠금 해제'},
   {id:'scan-unlock',name:'스캔 완료 · 문 잠금 해제',description:'스캔 전체 완료 → 문 한쪽 잠금 해제'},
-  {id:'keycard-unlock',name:'키카드 획득 · 문 잠금 해제',description:'ID 키카드 획득 → 문 한쪽 잠금 해제'}
+  {id:'keycard-unlock',name:'문 열쇠 획득 · 안내',description:'열쇠 획득 → 사용 안내. 잠금 해제는 문에서 열쇠를 사용합니다.'}
 ];
 export function createEventTemplate(id,project){
   const template=EVENT_TEMPLATES.find(t=>t.id===id);if(!template)throw new Error('없는 이벤트 템플릿입니다.');
@@ -15,7 +15,7 @@ export function createEventTemplate(id,project){
     p.actions=[lights,createBlock('flow.wait',project),createBlock(project.gimmicks.some(g=>g.type==='alarm')?'do.alarm':'do.message',project)];
   }else{
     p.trigger=createBlock({'door-scan':'when.doorAttempt','scan-unlock':'when.scan','keycard-unlock':'when.collect'}[id],project);
-    if(id==='door-scan'){const start=createBlock('do.alarm',project),stop=createBlock('do.alarm',project);stop.args={...start.args,action:'stop'};p.actions=[start,createBlock('do.runScan',project),stop,createBlock('do.door',project)];}else p.actions=[createBlock('do.door',project)];
+    if(id==='door-scan'){const start=createBlock('do.alarm',project),stop=createBlock('do.alarm',project);stop.args={...start.args,action:'stop'};p.actions=[start,createBlock('do.runScan',project),stop,createBlock('do.door',project)];}else p.actions=[createBlock(id==='keycard-unlock'?'do.message':'do.door',project)];
   }
   return p;
 }

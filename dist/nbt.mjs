@@ -43,7 +43,7 @@ function doorSettings(meta,security=null){
   const s=meta.door_settings||{},ticks=(n,f,max)=>Number.isInteger(n)?Math.max(1,Math.min(max,n)):f;
   return {type:security===null?(s.type==='SECURITY'?'SECURITY':'NORMAL'):security?'SECURITY':'NORMAL',access:['HOLD','ALARM','TERMINAL'].includes(s.access)?s.access:'HOLD',
     break_rule:['NEVER','ALWAYS','UNLOCKED'].includes(s.break_rule)?s.break_rule:'NEVER',noise_passes:!!s.noise_passes,light_passes:!!s.light_passes,
-    hold_ticks:security===true?20:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
+    hold_ticks:security===true?20:ticks(s.hold_ticks,60,1200),alarm_ticks:ticks(s.alarm_ticks,200,24000),key_id:typeof s.key_id==='string'?s.key_id.slice(0,96):'',terminal_command:typeof s.terminal_command==='string'?s.terminal_command.slice(0,64):'UNLOCK'};
 }
 export async function readStructure(input){
   const bytes=input instanceof Uint8Array?input:new Uint8Array(input);

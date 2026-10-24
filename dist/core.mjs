@@ -20,7 +20,7 @@ export const KINDS = {
   scan:{label:'원형 스캔',icon:'◎',color:'#52f8cf'},
   trigger:{label:'진입 트리거',icon:'◎',color:'#f4d67b'},
   cargo:{label:'화물 상자',icon:'▣',color:'#c6a077'},
-  keycard:{label:'ID 키카드',icon:'▰',color:'#a8d4c6'},
+  keycard:{label:'문 열쇠',icon:'▰',color:'#a8d4c6'},
   sleeper:{label:'수면 중인 몹',icon:'◇',color:'#d6a2ac'}
 };
 export const uid = prefix => prefix + '_' + (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));

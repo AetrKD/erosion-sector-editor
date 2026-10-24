@@ -37,3 +37,5 @@ test('security connectors default to interaction only and preserve explicitly co
     assert.equal(tile.ports[0].doorSettings.hold_ticks,20);
   }
 });
+
+test('door key ID remains separate from alarm access when reading a real NBT marker',async()=>{const tile=await inspectStructure(doorFixture({half:true,keyId:'LAB_A',access:'ALARM'}));assert.equal(tile.ports[0].doorSettings.key_id,'LAB_A');assert.equal(tile.ports[0].doorSettings.access,'ALARM');});

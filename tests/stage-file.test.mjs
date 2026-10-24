@@ -12,7 +12,7 @@ test('one ZIP stage is both editable project and stage, and contains only config
   const p=demoProject(),tile=await inspectStructure(doorFixture({half:true}),'복도.nbt');tile.asset.reference='연구소/복도.nbt';p.tiles.push(tile);
   p.author='제작 팀';p.difficulty='매우 어려움';p.chapter={id:'chapter-b',name:'침식 연구소',description:'격리 구역 탐사'};p.missionCode='B3';
   p.placements[0].x=-17/16;p.placements[0].z=19/16;
-  tile.ports[0].doorSettings.access='ALARM';
+  tile.ports[0].doorSettings.access='ALARM';tile.ports[0].doorSettings.key_id='LAB_A';
   const bytes=packStage(p),files=unzipSync(bytes);
   assert.equal(JSON.parse(strFromU8(files['manifest.json'])).tileRoot,'assets/tile');
   assert.deepEqual([...bytes.subarray(0,4)],[80,75,3,4]);
@@ -44,7 +44,7 @@ test('relative paths require a tile set, reject traversal and distinguish identi
 
 test('a folder reattaches exact set/path names and retains per-side door conditions',async()=>{
   const a=doorFixture({half:true}),b=doorFixture({half:true,width:6});
-  let p=demoProject();const tile=await inspectStructure(a,'복도.nbt');tile.asset.reference='연구소/복도.nbt';tile.ports[0].doorSettings.access='ALARM';p.tiles.push(tile);
+  let p=demoProject();const tile=await inspectStructure(a,'복도.nbt');tile.asset.reference='연구소/복도.nbt';tile.ports[0].doorSettings.access='ALARM';tile.ports[0].doorSettings.key_id='LAB_A';p.tiles.push(tile);
   p=unpackStage(packStage(p));
   const result=await loadTileFolder(p,[file('공장/복도.nbt',b),file('연구소/복도.nbt',a)]);
   const attached=result.project.tiles.find(t=>t.id===tile.id);

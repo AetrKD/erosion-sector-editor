@@ -17,7 +17,7 @@ export const BLOCKS=Object.freeze({
   'when.signal':definition('trigger','신호를 받으면',{signal:text('신호 이름','전력_복구',80)}),
   'when.command':definition('trigger','터미널에 명령어를 입력하면',{gimmickId:target('시설 터미널','terminal'),command:text('명령어','RESTORE_POWER',120)}),
   'when.pickup':definition('trigger','화물을 들어 올리면',{gimmickId:target('화물 상자','cargo')}),
-  'when.collect':definition('trigger','ID 키카드를 획득하면',{gimmickId:target('ID 키카드','keycard')}),
+  'when.collect':definition('trigger','문 열쇠를 획득하면',{gimmickId:target('문 열쇠','keycard')}),
   'when.doorAttempt':definition('trigger','보안 문을 열려고 하면',{doorId:target('문 · 이쪽 면','door')}),
   'when.objective':definition('trigger','임무 목표가 완료되면',{objectiveId:target('임무 목표','objective')}),
   'when.all':definition('trigger','아래 이벤트가 모두 발생하면',{}, {items:'trigger'}),

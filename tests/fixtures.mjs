@@ -10,12 +10,12 @@ export function structureBytes(size,palette,blocks,compressed=false){
   byte(10);str('');value({DataVersion:3955,size,palette,blocks,entities:[]});
   const bytes=Buffer.concat(parts);return compressed?gzipSync(bytes):bytes;
 }
-export function doorFixture({size=[16,8,16],facing='west',pos=[0,4,5],width=6,height=4,security=true,access='TERMINAL',marker=true,count=width,modern=true,compressed=false,extras=[],half=false}={}){
+export function doorFixture({size=[16,8,16],facing='west',pos=[0,4,5],width=6,height=4,security=true,access='TERMINAL',keyId='',marker=true,count=width,modern=true,compressed=false,extras=[],half=false}={}){
   const palette=[{Name:'create:copycat_panel'},{Name:half?(security?'erosionsector:tile_security_door_drive':'erosionsector:tile_door_drive'):security?'erosionsector:security_door_drive':'erosionsector:door_drive',Properties:{facing}},{Name:'erosionsector:tile_door_part',Properties:{facing,sliding:String(security)}}];
   const blocks=[{pos:[Math.min(1,size[0]-1),0,Math.min(1,size[2]-1)],state:0,nbt:{Material:'minecraft:iron_block'}},...extras];
   if(marker)for(let i=0;i<count;i++){
     const at=[...pos];at[['north','south'].includes(facing)?0:2]+=i;
-    blocks.push({pos:at,state:1,nbt:modern?{MarkerVersion:half?4:3,Width:width,Height:height,Required:true,...(half?{HalfReady:true,LocalRow:height-1}:{}),door_settings:{type:security?'SECURITY':'NORMAL',access,break_rule:'UNLOCKED',terminal_command:'UNLOCK LAB',noise_passes:true,light_passes:false}}:{}});
+    blocks.push({pos:at,state:1,nbt:modern?{MarkerVersion:half?4:3,Width:width,Height:height,Required:true,...(half?{HalfReady:true,LocalRow:height-1}:{}),door_settings:{key_id:keyId,type:security?'SECURITY':'NORMAL',access,break_rule:'UNLOCKED',terminal_command:'UNLOCK LAB',noise_passes:true,light_passes:false}}:{}});
     if(half)for(let row=0;row<height-1;row++){const part=[...at];part[1]=pos[1]-height+1+row;blocks.push({pos:part,state:2,nbt:{Width:width,Height:height,LocalRow:row,HalfReady:true}});}
   }
   return structureBytes(size,palette,blocks,compressed);
