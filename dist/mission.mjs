@@ -1,5 +1,5 @@
 import {assertScans,scanIssues,normalizeScanCoordinates} from './scan.mjs';
-export const OBJECTIVE_TYPES={interact:'오브젝트 상호작용',survive:'제한 시간 생존',clear:'길 정리',scan:'스캔 완료',command:'터미널 명령어 입력',visit:'타일 방문',collect:'ID 키카드 획득',pickup:'화물 들어 올리기',deliver:'화물을 탈출 지점으로 운반',manual:'이벤트로 완료'};
+export const OBJECTIVE_TYPES={interact:'오브젝트 상호작용',survive:'제한 시간 생존',scan:'스캔 완료',command:'터미널 명령어 입력',visit:'타일 방문',collect:'ID 키카드 획득',pickup:'화물 들어 올리기',deliver:'화물을 탈출 지점으로 운반',manual:'이벤트로 완료'};
 export function normalizeMission(p){
   p.missionMode??='extract';p.objectives??=[];
   if(!['extract','objectives'].includes(p.missionMode)||!Array.isArray(p.objectives)||p.objectives.length>200)throw new Error('임무 목표 설정이 올바르지 않습니다.');
@@ -14,7 +14,7 @@ export function normalizeMission(p){
     for(const key of ['duration','radius','count','distance','waves','waveInterval'])if(s[key]!==undefined&&(!Number.isFinite(s[key])||Math.abs(s[key])>3600))throw new Error(g.name+': 수량·시간·거리 설정을 확인하세요.');
   }assertScans(p);normalizeScanCoordinates(p);return p;
 }
-export function objectiveTargets(p,type){return type==='clear'?[...(p.enemyTables||[]),...(p.enemyGroups||[])].map(g=>[g.id,g.name]):type==='survive'?[]:type==='interact'?[...p.gimmicks.filter(g=>g.type==='object').map(g=>[g.id,g.name]),...(p.resourceRules||[]).filter(r=>r.kind==='object').map(r=>[r.objectKey||r.id,r.name])]:type==='visit'?p.placements.map(q=>[q.id,`${p.rooms.find(r=>r.id===q.roomId)?.code||'?'} / ${q.areaCode||'?'} · ${q.name||p.tiles.find(t=>t.id===q.tileId)?.name||'타일'} · ${q.y>=0?(q.y+1)+'층':'지하 '+Math.abs(q.y)+'층'}`]):type==='manual'?[]:p.gimmicks.filter(g=>g.type===({command:'terminal',collect:'keycard',pickup:'cargo',deliver:'cargo',scan:'scan'}[type])).map(g=>[g.id,g.name]).concat((p.resourceRules||[]).filter(r=>r.kind===({collect:'keycard',pickup:'cargo',deliver:'cargo'}[type])).map(r=>[r.objectKey||r.id,r.name]));}
+export function objectiveTargets(p,type){return type==='survive'?[]:type==='interact'?[...p.gimmicks.filter(g=>g.type==='object').map(g=>[g.id,g.name]),...(p.resourceRules||[]).filter(r=>r.kind==='object').map(r=>[r.objectKey||r.id,r.name])]:type==='visit'?p.placements.map(q=>[q.id,`${p.rooms.find(r=>r.id===q.roomId)?.code||'?'} / ${q.areaCode||'?'} · ${q.name||p.tiles.find(t=>t.id===q.tileId)?.name||'타일'} · ${q.y>=0?(q.y+1)+'층':'지하 '+Math.abs(q.y)+'층'}`]):type==='manual'?[]:p.gimmicks.filter(g=>g.type===({command:'terminal',collect:'keycard',pickup:'cargo',deliver:'cargo',scan:'scan'}[type])).map(g=>[g.id,g.name]).concat((p.resourceRules||[]).filter(r=>r.kind===({collect:'keycard',pickup:'cargo',deliver:'cargo'}[type])).map(r=>[r.objectKey||r.id,r.name]));}
 export function missionIssues(p){
   const issues=[],add=(message,target=null)=>issues.push({severity:'error',message,target});
   if(p.missionMode==='objectives'&&!(p.objectives||[]).some(o=>o.required))add('목표 달성 임무에는 필수 목표를 하나 이상 지정하세요.');
