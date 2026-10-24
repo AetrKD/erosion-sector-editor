@@ -260,6 +260,7 @@ export function validateProjectDraft(p) {
       occupancy(t);
     }
   }
+  for(const q of p.placements)if(q.doorStates!==undefined){if(!q.doorStates||Array.isArray(q.doorStates)||typeof q.doorStates!=='object')fail('문 초기 상태가 올바르지 않습니다.');for(const [id,state] of Object.entries(q.doorStates)){const port=p.tiles.find(t=>t.id===q.tileId)?.ports.find(x=>x.id===id);if(!port||!state||Array.isArray(state)||Object.keys(state).some(k=>!['open','locked'].includes(k)||typeof state[k]!=='boolean')||state.locked!==undefined&&port.doorSettings?.type!=='SECURITY')fail('문 초기 상태의 대상·열림·잠금 값을 확인하세요.');}}
   for(const q of p.placements) if(!text(q.tileId)||!text(q.roomId)||!text(q.name)||!horizontal(q.x)||!horizontal(q.z)||!integer(q.y,-1024,1024)||![0,90,180,270].includes(q.rotation)) fail('타일 배치 데이터가 올바르지 않습니다.');
   normalizeAreaCodes(p);
   const areaCodes=new Map();

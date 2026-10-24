@@ -39,3 +39,10 @@ test('bundle duplication preserves local wiring and is one undoable change',asyn
 test('door key ID is edited independently from alarm access and survives stage download',async({page})=>{
  await load(page);const tile=(await snapshot(page)).tiles.find(t=>t.ports.length);await page.locator(`[data-library-tile="${tile.id}"]`).click();await page.locator('[data-edit-port]').first().click();await page.locator('#dialogBody [name=keyId]').fill('LAB_A');await page.locator('#dialogBody [name=access]').selectOption('ALARM');await page.locator('#dialogForm button[type=submit]').click();const saved=(await snapshot(page)).tiles.find(t=>t.id===tile.id).ports[0].doorSettings;expect(saved.key_id).toBe('LAB_A');expect(saved.access).toBe('ALARM');const [download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-action=save]').click()]);const stage=unpackStage(await readFile(await download.path()));expect(stage.tiles.find(t=>t.id===tile.id).ports[0].doorSettings.key_id).toBe('LAB_A');
 });
+
+test('placed door initial open and lock settings pair motion and display emergency lock',async({page})=>{
+ await load(page);await page.locator('button[data-section=tiles]').click();await page.mouse.click(...Object.values(await at(page,{x:16,z:4})));await expect(page.locator('#inspectorContent')).toContainText('문 · 이쪽 면');
+ await page.locator('[data-door-state=open]').selectOption('true');await page.locator('[data-door-state=locked]').selectOption('true');await expect(page.locator('[data-door-status]')).toHaveText('비상 잠금');
+ const p=await snapshot(page);expect(p.placements.find(q=>q.id==='p1').doorStates.east).toEqual({open:true,locked:true});expect(p.placements.find(q=>q.id==='p2').doorStates.west.open).toBe(true);
+ await page.locator('[data-action=undo]').click();await expect(page.locator('[data-door-state=locked]')).toHaveValue('false');const [download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-action=save]').click()]);const saved=unpackStage(await readFile(await download.path()));expect(saved.placements.find(q=>q.id==='p1').doorStates.east.open).toBe(true);
+});
